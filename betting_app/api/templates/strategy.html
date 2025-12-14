@@ -1,0 +1,867 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Betting Strategy - EdgeFinder Pro</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            /* Core Palette - Premium Dark Theme */
+            --slate-primary: #4A5F6D;
+            --slate-medium: #5C7A8A;
+            --slate-dark: #2D3A45;
+            --teal-accent: #7FB8BE;
+            --teal-glow: rgba(127, 184, 190, 0.6);
+            --orange-accent: #FF6B35;
+            --orange-glow: rgba(255, 107, 53, 0.6);
+            --bg-dark: #0F172A;
+            --bg-card: rgba(30, 41, 59, 0.7);
+            --text-white: #FFFFFF;
+            --text-light: #E2E8F0;
+            --text-muted: #94A3B8;
+
+            /* Glassmorphism */
+            --glass-bg: rgba(255, 255, 255, 0.03);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-light);
+            min-height: 100vh;
+            padding: 0;
+            position: relative;
+        }
+
+        /* Background Image with Overlay */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: url('/static/images/stadium.jpg') no-repeat center center fixed;
+            background-size: cover;
+            opacity: 0.15;
+            z-index: -1;
+            filter: grayscale(80%) contrast(120%);
+        }
+
+        h1,
+        h2,
+        h3,
+        h4,
+        .brand-font {
+            font-family: 'Outfit', sans-serif;
+        }
+
+        .container {
+            max-width: 1420px;
+            margin: 0 auto;
+            padding: 24px 28px;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Navigation Bar */
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 32px;
+            padding: 16px 28px;
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(16px);
+            border-radius: 16px;
+            border: 1px solid var(--glass-border);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        .logo-section {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .logo-text {
+            font-size: 1.5rem;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            color: var(--text-white);
+            font-family: 'Outfit', sans-serif;
+            text-decoration: none;
+        }
+
+        .logo-badge {
+            background: rgba(127, 184, 190, 0.15);
+            border: 1px solid var(--teal-accent);
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            color: var(--teal-accent);
+        }
+
+        .nav {
+            display: flex;
+            gap: 8px;
+        }
+
+        .nav a {
+            color: var(--text-muted);
+            text-decoration: none;
+            padding: 10px 20px;
+            border-radius: 10px;
+            font-weight: 500;
+            font-size: 0.95rem;
+            transition: all 0.2s ease;
+        }
+
+        .nav a:hover {
+            color: var(--text-white);
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .nav a.active {
+            background: linear-gradient(135deg, var(--teal-accent) 0%, #5C7A8A 100%);
+            color: white;
+            box-shadow: 0 4px 14px rgba(127, 184, 190, 0.25);
+            font-weight: 600;
+        }
+
+        /* Hero Section */
+        .hero-section {
+            padding: 48px 32px;
+            margin-bottom: 36px;
+            background: linear-gradient(135deg, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.9) 100%);
+            border-radius: 20px;
+            border: 1px solid var(--glass-border);
+            position: relative;
+            overflow: hidden;
+            backdrop-filter: blur(10px);
+        }
+
+        .hero-section::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 300px;
+            height: 100%;
+            background: radial-gradient(circle at center, rgba(127, 184, 190, 0.1) 0%, transparent 70%);
+            pointer-events: none;
+        }
+
+        .hero-section h1 {
+            font-size: 3rem;
+            font-weight: 700;
+            letter-spacing: -1px;
+            margin-bottom: 14px;
+            color: var(--text-white);
+            line-height: 1.1;
+        }
+
+        .tagline {
+            font-size: 1.2rem;
+            color: var(--text-muted);
+            font-weight: 400;
+        }
+
+        /* Controls Section */
+        .controls-bar {
+            background: rgba(15, 23, 42, 0.6);
+            /* Slightly transparent background */
+            padding: 20px;
+            border-radius: 16px;
+            border: 1px solid var(--glass-border);
+            margin-bottom: 30px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            backdrop-filter: blur(12px);
+        }
+
+        .control-label {
+            color: var(--text-muted);
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+
+        .bankroll-input {
+            background: rgba(30, 41, 59, 0.8);
+            color: var(--text-white);
+            border: 1px solid var(--glass-border);
+            padding: 12px 18px;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 600;
+            width: 180px;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .bankroll-input:focus {
+            outline: none;
+            border-color: var(--teal-accent);
+            box-shadow: 0 0 0 3px rgba(127, 184, 190, 0.2);
+        }
+
+        .update-btn {
+            background: linear-gradient(135deg, var(--teal-accent) 0%, #5C7A8A 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.95rem;
+        }
+
+        .update-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(127, 184, 190, 0.3);
+        }
+
+        /* Filters Section */
+        .filters-section {
+            background: rgba(30, 41, 59, 0.6);
+            backdrop-filter: blur(12px);
+            border-radius: 16px;
+            border: 1px solid var(--glass-border);
+            padding: 20px;
+            margin-bottom: 32px;
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            align-items: flex-end;
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            min-width: 160px;
+        }
+
+        .filter-label {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .filter-select {
+            background: rgba(15, 23, 42, 0.6);
+            color: var(--text-white);
+            border: 1px solid var(--glass-border);
+            padding: 12px 16px;
+            border-radius: 10px;
+            font-size: 0.95rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-family: 'Inter', sans-serif;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            background-size: 16px;
+            padding-right: 40px;
+        }
+
+        .filter-select:hover {
+            border-color: var(--teal-accent);
+        }
+
+        .reset-btn {
+            background: rgba(220, 38, 38, 0.1);
+            border: 1px solid rgba(220, 38, 38, 0.3);
+            color: #F87171;
+            padding: 12px 20px;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            height: 45px;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .reset-btn:hover {
+            background: rgba(220, 38, 38, 0.2);
+            transform: translateY(-1px);
+        }
+
+        /* Portfolio Summary */
+        .portfolio-card {
+            background: var(--bg-card);
+            padding: 32px;
+            border-radius: 20px;
+            margin-bottom: 40px;
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+            border: 1px solid var(--glass-border);
+        }
+
+        .portfolio-card h2 {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: var(--text-white);
+            margin-bottom: 24px;
+        }
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 24px;
+        }
+
+        .summary-item {
+            background: rgba(15, 23, 42, 0.6);
+            padding: 24px;
+            border-radius: 16px;
+            text-align: center;
+            border: 1px solid var(--glass-border);
+        }
+
+        .summary-label {
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        .summary-value {
+            font-size: 1.8rem;
+            font-weight: 800;
+            color: var(--teal-accent);
+            font-family: 'Outfit', sans-serif;
+        }
+
+        .summary-value.profit {
+            color: var(--orange-accent);
+        }
+
+        .health-badge {
+            display: inline-block;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-weight: 700;
+            text-transform: uppercase;
+            font-size: 0.8rem;
+            margin-top: 8px;
+        }
+
+        .health-badge.Healthy {
+            background: rgba(127, 184, 190, 0.15);
+            color: var(--teal-accent);
+            border: 1px solid var(--teal-accent);
+        }
+
+        .health-badge.Moderate {
+            background: rgba(255, 107, 53, 0.15);
+            color: var(--orange-accent);
+            border: 1px solid var(--orange-accent);
+        }
+
+        .health-badge.High.Risk {
+            background: rgba(220, 38, 38, 0.15);
+            color: #F87171;
+            border: 1px solid #F87171;
+        }
+
+        /* Recommendations */
+        .rec-grid {
+            display: grid;
+            gap: 24px;
+        }
+
+        .rec-card {
+            background: rgba(30, 41, 59, 0.6);
+            backdrop-filter: blur(12px);
+            padding: 24px;
+            border-radius: 16px;
+            border: 1px solid var(--glass-border);
+            border-left: 4px solid var(--teal-accent);
+            transition: all 0.2s ease;
+        }
+
+        .rec-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+        }
+
+        .rec-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 20px;
+        }
+
+        .rec-title {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: var(--text-white);
+            font-family: 'Outfit', sans-serif;
+            margin-bottom: 4px;
+        }
+
+        .rec-market {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        .rec-meta {
+            text-align: right;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+
+        .rec-selection {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--teal-accent);
+            margin-bottom: 12px;
+            font-family: 'Outfit', sans-serif;
+        }
+
+        .stake-box {
+            background: rgba(127, 184, 190, 0.1);
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(127, 184, 190, 0.2);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .stake-info {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .stake-label {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .stake-amount {
+            font-size: 2rem;
+            font-weight: 800;
+            color: var(--text-white);
+            font-family: 'Outfit', sans-serif;
+        }
+
+        .stake-pct {
+            font-size: 0.9rem;
+            color: var(--teal-accent);
+            font-weight: 500;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .metric-item {
+            background: rgba(15, 23, 42, 0.4);
+            padding: 12px;
+            border-radius: 10px;
+            text-align: center;
+            border: 1px solid var(--glass-border);
+        }
+
+        .metric-label {
+            color: var(--text-muted);
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            margin-bottom: 6px;
+        }
+
+        .metric-value {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--text-light);
+        }
+
+        .metric-value.highlight {
+            color: var(--orange-accent);
+        }
+
+        .reasoning-box {
+            background: rgba(15, 23, 42, 0.4);
+            padding: 16px;
+            border-radius: 12px;
+            color: var(--text-light);
+            font-size: 0.95rem;
+            line-height: 1.6;
+            border-left: 3px solid var(--orange-accent);
+        }
+
+        .progress-bar {
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 12px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--teal-accent), #5C7A8A);
+            border-radius: 3px;
+        }
+
+        @media (max-width: 768px) {
+            .top-bar {
+                flex-direction: column;
+                gap: 16px;
+            }
+
+            .nav {
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+
+            .controls-bar {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .bankroll-input {
+                width: 100%;
+            }
+
+            .filters-section {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .filter-group {
+                min-width: 100%;
+            }
+
+            .stake-box {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 12px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <!-- Top Navigation Bar -->
+        <div class="top-bar">
+            <div class="logo-section">
+                <a href="/landing" class="logo-text">EdgeFinder Pro</a>
+                <div class="logo-badge">Intelligence</div>
+            </div>
+            <nav class="nav">
+                <a href="/bets">Single Bets</a>
+                <a href="/multibets">Multi-Bets</a>
+                <a href="/props">Prop Builder</a>
+                <a href="/analytics">Analytics</a>
+                <a href="/strategy" class="active">Strategy</a>
+                <a href="/news">News</a>
+            </nav>
+            <button class="nav-btn" onclick="document.location.reload()"
+                style="background: rgba(127, 184, 190, 0.15); border: 1px solid var(--teal-accent); color: var(--teal-accent); padding: 8px 16px; border-radius: 8px; cursor: pointer; font-weight: 600; font-family: 'Inter', sans-serif;">Refresh</button>
+        </div>
+
+        <div class="hero-section">
+            <h1>Betting Strategy</h1>
+            <p class="tagline">Kelly Criterion & Bankroll Management</p>
+        </div>
+
+        <!-- Controls -->
+        <div class="controls-bar">
+            <label class="control-label">Bankroll ($):</label>
+            <input type="number" class="bankroll-input" id="bankrollInput" value="{{ bankroll }}" min="100" step="100">
+            <button class="update-btn" onclick="updateBankroll()">Update Strategy</button>
+        </div>
+
+        <!-- Filters Section -->
+        <div class="filters-section">
+            <div class="filter-group">
+                <label class="filter-label">Sport</label>
+                <select class="filter-select" id="sportFilter" onchange="applyFilters()">
+                    <option value="all">All Sports</option>
+                    <option value="NFL">🏈 NFL</option>
+                    <option value="NBA">🏀 NBA</option>
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label class="filter-label">Stake Category</label>
+                <select class="filter-select" id="categoryFilter" onchange="applyFilters()">
+                    <option value="all">All Categories</option>
+                    <option value="Strong">Strong Bets</option>
+                    <option value="Standard">Standard Bets</option>
+                    <option value="Small">Small Bets</option>
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label class="filter-label">Confidence</label>
+                <select class="filter-select" id="confidenceFilter" onchange="applyFilters()">
+                    <option value="all">All Confidence</option>
+                    <option value="High">High</option>
+                    <option value="Medium">Medium</option>
+                    <option value="Low">Low</option>
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label class="filter-label">Sort By</label>
+                <select class="filter-select" id="sortFilter" onchange="applyFilters()">
+                    <option value="stake">Stake Amount</option>
+                    <option value="value">Value Score</option>
+                    <option value="roi">ROI</option>
+                    <option value="time">Game Time</option>
+                </select>
+            </div>
+
+            <button class="reset-btn" onclick="resetFilters()">Reset Filters</button>
+        </div>
+
+        <div class="portfolio-card">
+            <h2>Portfolio Summary</h2>
+            <div class="summary-grid">
+                <div class="summary-item">
+                    <div class="summary-label">Total Bankroll</div>
+                    <div class="summary-value">${{ portfolio.bankroll }}</div>
+                </div>
+                <div class="summary-item">
+                    <div class="summary-label">Recommended Stake</div>
+                    <div class="summary-value">${{ portfolio.total_stake }}</div>
+                </div>
+                <div class="summary-item">
+                    <div class="summary-label">Exposure</div>
+                    <div class="summary-value">{{ portfolio.exposure_percentage }}%</div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: {{ portfolio.exposure_percentage }}%"></div>
+                    </div>
+                </div>
+                <div class="summary-item">
+                    <div class="summary-label">Active Bets</div>
+                    <div class="summary-value">{{ portfolio.number_of_bets }}</div>
+                </div>
+                <div class="summary-item">
+                    <div class="summary-label">Potential Profit</div>
+                    <div class="summary-value profit">${{ portfolio.total_potential_profit }}</div>
+                </div>
+                <div class="summary-item">
+                    <div class="summary-label">Portfolio Health</div>
+                    <div style="margin-top: 5px;">
+                        <span class="health-badge {{ portfolio.portfolio_health }}">{{ portfolio.portfolio_health
+                            }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <h2 style="margin-bottom: 24px; font-family: 'Outfit', sans-serif; color: var(--text-white);">Stake
+            Recommendations</h2>
+
+        {% if recommendations|length == 0 %}
+        <div
+            style="text-align: center; padding: 80px 32px; background: var(--bg-card); border-radius: 20px; border: 1px solid var(--glass-border);">
+            <h2 style="color: var(--text-white); margin-bottom: 16px; font-size: 1.8rem;">No Recommendations Available
+            </h2>
+            <p style="color: var(--text-muted); font-size: 1.1rem;">No recommended predictions found in the database.
+            </p>
+            <p style="color: var(--text-muted); margin-top: 10px;">Run the data pipeline to generate predictions:</p>
+            <code
+                style="background: rgba(0,0,0,0.3); padding: 10px 20px; border-radius: 8px; display: inline-block; margin-top: 15px; color: var(--teal-accent); font-family: monospace;">
+                python3 -m analysis.pipeline
+            </code>
+        </div>
+        {% endif %}
+
+        <div class="rec-grid">
+            {% for rec in recommendations %}
+            <div class="rec-card {{ rec.stake_category }}" data-sport="{{ rec.sport }}"
+                data-category="{{ rec.stake_category }}" data-confidence="{{ rec.confidence }}"
+                data-stake="{{ rec.recommended_stake }}" data-value="{{ rec.value_score }}"
+                data-roi="{{ rec.roi_percentage }}" data-time="{{ rec.start_time }}">
+
+                <div class="rec-header">
+                    <div>
+                        <div class="rec-title">{{ rec.fixture }}</div>
+                        <div class="rec-market">{{ rec.market }}</div>
+                    </div>
+                    <div class="rec-meta">
+                        <div>{{ rec.sport }}</div>
+                        <div style="margin-top: 4px;">{{ rec.start_time }}</div>
+                    </div>
+                </div>
+
+                <div class="rec-selection">{{ rec.selection }}</div>
+
+                <div class="stake-box">
+                    <div class="stake-info">
+                        <div class="stake-label">Recommended Stake</div>
+                        <div class="stake-amount">${{ rec.recommended_stake }}</div>
+                        <div class="stake-pct">{{ rec.as_percentage_of_bankroll }}% of bankroll</div>
+                    </div>
+                    <div style="text-align: right;">
+                        <span class="health-badge"
+                            style="background: #2D3A45; color: white; border: 1px solid var(--glass-border);">{{
+                            rec.stake_category }} BET</span>
+                    </div>
+                </div>
+
+                <div class="metrics-grid">
+                    <div class="metric-item">
+                        <div class="metric-label">Odds</div>
+                        <div class="metric-value">{{ "%.2f"|format(rec.odds) }}</div>
+                    </div>
+                    <div class="metric-item">
+                        <div class="metric-label">Win Prob</div>
+                        <div class="metric-value">{{ rec.probability }}%</div>
+                    </div>
+                    <div class="metric-item">
+                        <div class="metric-label">Value</div>
+                        <div class="metric-value">{{ "%.2f"|format(rec.value_score) }}</div>
+                    </div>
+                    <div class="metric-item">
+                        <div class="metric-label">Confidence</div>
+                        <div class="metric-value">{{ rec.confidence }}</div>
+                    </div>
+                    <div class="metric-item">
+                        <div class="metric-label">Pot. Profit</div>
+                        <div class="metric-value highlight">${{ rec.potential_profit }}</div>
+                    </div>
+                    <div class="metric-item">
+                        <div class="metric-label">ROI</div>
+                        <div class="metric-value highlight">{{ rec.roi_percentage }}%</div>
+                    </div>
+                </div>
+
+                <div class="reasoning-box">
+                    <strong style="color: var(--teal-accent);">Strategy:</strong> {{ rec.reasoning }}
+                    <br><br>
+                    <strong style="color: var(--orange-accent);">Risk Level:</strong> {{ rec.risk_level }}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <script>
+        function updateBankroll() {
+            const bankroll = document.getElementById('bankrollInput').value;
+            window.location.href = `/strategy?bankroll=${bankroll}`;
+        }
+
+        function applyFilters() {
+            const sportFilter = document.getElementById('sportFilter').value;
+            const categoryFilter = document.getElementById('categoryFilter').value;
+            const confidenceFilter = document.getElementById('confidenceFilter').value;
+            const sortFilter = document.getElementById('sortFilter').value;
+
+            const cards = Array.from(document.querySelectorAll('.rec-card'));
+
+            // Filter cards
+            cards.forEach(card => {
+                const sport = card.dataset.sport;
+                const category = card.dataset.category;
+                const confidence = card.dataset.confidence;
+
+                let show = true;
+
+                if (sportFilter !== 'all' && sport !== sportFilter) {
+                    show = false;
+                }
+                if (categoryFilter !== 'all' && category !== categoryFilter) {
+                    show = false;
+                }
+                if (confidenceFilter !== 'all' && confidence !== confidenceFilter) {
+                    show = false;
+                }
+
+                card.style.display = show ? 'block' : 'none';
+            });
+
+            // Sort visible cards
+            const visibleCards = cards.filter(card => card.style.display !== 'none');
+            const grid = document.querySelector('.rec-grid');
+
+            visibleCards.sort((a, b) => {
+                if (sortFilter === 'stake') {
+                    return parseFloat(b.dataset.stake) - parseFloat(a.dataset.stake);
+                } else if (sortFilter === 'value') {
+                    return parseFloat(b.dataset.value) - parseFloat(a.dataset.value);
+                } else if (sortFilter === 'roi') {
+                    return parseFloat(b.dataset.roi) - parseFloat(a.dataset.roi);
+                } else if (sortFilter === 'time') {
+                    return a.dataset.time.localeCompare(b.dataset.time);
+                }
+                return 0;
+            });
+
+            // Re-append in sorted order
+            visibleCards.forEach(card => {
+                grid.appendChild(card);
+            });
+
+            // Update counts
+            updateFilterCounts(visibleCards.length, cards.length);
+        }
+
+        function resetFilters() {
+            document.getElementById('sportFilter').value = 'all';
+            document.getElementById('categoryFilter').value = 'all';
+            document.getElementById('confidenceFilter').value = 'all';
+            document.getElementById('sortFilter').value = 'stake';
+            applyFilters();
+        }
+
+        function updateFilterCounts(visible, total) {
+            const title = document.querySelector('h2'); // The one before the grid?
+            // Actually targeting the "Stake Recommendations" header specifically is safer.
+            // Let's iterate headers to find the right one if there are multiple h2s.
+            const headers = document.querySelectorAll('h2');
+            headers.forEach(h => {
+                if (h.textContent.includes('Stake Recommendations')) {
+                    h.textContent = `Stake Recommendations (${visible} of ${total})`;
+                }
+            });
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            const cards = document.querySelectorAll('.rec-card');
+            updateFilterCounts(cards.length, cards.length);
+        });
+    </script>
+</body>
+
+</html>

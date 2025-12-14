@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -m uvicorn:*)",
+      "Bash(python3 -m uvicorn:*)",
+      "Bash(python3 -m pip install:*)",
+      "Bash(python3:*)",
+      "Bash(lsof:*)",
+      "Bash(xargs kill:*)",
+      "Bash(PYTHONPATH=. python3:*)",
+      "Bash(export PYTHONPATH=.)",
+      "Bash(curl:*)",
+      "Bash(cat:*)",
+      "Read(//Users/luketree/Library/CloudStorage/OneDrive-SharedLibraries-stursulas.qld.edu.au/**)",
+      "Bash(pip3 list:*)",
+      "Bash(timeout 120 python3:*)",
+      "Bash(chmod:*)",
+      "Read(//private/tmp/**)",
+      "Bash(time curl -s http://localhost:8000/analytics)",
+      "Bash(timeout 5 curl:*)",
+      "Bash(for file in index.html analytics.html strategy.html multibets.html)",
+      "Bash(do sed -i '' 's|href=\"\"/\"\"|href=\"\"/bets\"\"|g' \"$file\")",
+      "Bash(done)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

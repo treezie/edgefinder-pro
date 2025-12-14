@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multi-Bet Suggestions</title>
+    <style>
+        :root {
+            --primary: #00E0FF;
+            --bg: #0F172A;
+            --card-bg: #1E293B;
+            --text: #F8FAFC;
+            --nfl-color: #013369;
+            --nba-color: #c8102e;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 40px;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            background: linear-gradient(to right, var(--primary), #0066FF);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .nav {
+            display: flex;
+            gap: 15px;
+        }
+
+        .nav a {
+            color: var(--text);
+            text-decoration: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            background: var(--card-bg);
+            transition: all 0.2s;
+        }
+
+        .nav a:hover {
+            background: rgba(0, 224, 255, 0.1);
+            color: var(--primary);
+        }
+
+        .nav a.active {
+            background: var(--primary);
+            color: #000;
+        }
+
+        .multibet-card {
+            background: var(--card-bg);
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+            border-left: 4px solid var(--primary);
+        }
+
+        .multibet-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .multibet-type {
+            font-size: 1.3rem;
+            font-weight: bold;
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .leg-badge {
+            background: rgba(0, 224, 255, 0.2);
+            color: var(--primary);
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+        }
+
+        .combined-stats {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-label {
+            font-size: 0.8rem;
+            color: #94A3B8;
+            margin-bottom: 5px;
+        }
+
+        .stat-value {
+            font-size: 1.4rem;
+            font-weight: bold;
+            color: var(--primary);
+        }
+
+        .legs-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .leg {
+            background: rgba(255, 255, 255, 0.03);
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .leg-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .sport-badge {
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: bold;
+        }
+
+        .sport-badge.NFL {
+            background: rgba(1, 51, 105, 0.3);
+            color: #60A5FA;
+        }
+
+        .sport-badge.NBA {
+            background: rgba(200, 16, 46, 0.3);
+            color: #F87171;
+        }
+
+        .fixture-name {
+            font-size: 1.1rem;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+
+        .selection {
+            font-size: 1rem;
+            color: var(--primary);
+            margin-bottom: 8px;
+        }
+
+        .leg-stats {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            font-size: 0.85rem;
+        }
+
+        .tag {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+        }
+
+        .tag.High {
+            background: rgba(16, 185, 129, 0.2);
+            color: #34D399;
+        }
+
+        .tag.Medium {
+            background: rgba(245, 158, 11, 0.2);
+            color: #FBBF24;
+        }
+
+        .tag.Low {
+            background: rgba(239, 68, 68, 0.2);
+            color: #F87171;
+        }
+
+        .bookmaker {
+            font-size: 0.8rem;
+            color: #94A3B8;
+            margin-top: 5px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #94A3B8;
+        }
+
+        .empty-state h2 {
+            font-size: 1.5rem;
+            margin-bottom: 10px;
+        }
+
+        .justification {
+            background: rgba(0, 224, 255, 0.05);
+            border-left: 3px solid var(--primary);
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            line-height: 1.6;
+            white-space: pre-line;
+        }
+
+        .justification strong {
+            color: var(--primary);
+        }
+
+        .info-box {
+            background: rgba(0, 224, 255, 0.1);
+            border: 1px solid rgba(0, 224, 255, 0.3);
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .info-box h3 {
+            margin: 0 0 10px 0;
+            color: var(--primary);
+        }
+
+        .info-box p {
+            margin: 5px 0;
+            font-size: 0.9rem;
+            color: #CBD5E1;
+        }
+
+        .filter-container {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 30px;
+            padding: 15px;
+            background: var(--card-bg);
+            border-radius: 8px;
+        }
+
+        .filter-container label {
+            font-weight: 600;
+            color: var(--primary);
+        }
+
+        .filter-container select {
+            padding: 10px 15px;
+            background: var(--bg);
+            color: var(--text);
+            border: 1px solid rgba(0, 224, 255, 0.3);
+            border-radius: 6px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .filter-container select:hover {
+            border-color: var(--primary);
+        }
+
+        .filter-container select:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(0, 224, 255, 0.1);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>Multi-Bet Suggestions</h1>
+            <div class="nav">
+                <a href="/">Single Bets</a>
+                <a href="/multibets" class="active">Multi-Bets</a>
+            </div>
+        </header>
+
+        <div class="info-box">
+            <h3>About Multi-Bets</h3>
+            <p>Multi-bets (parlays) combine multiple selections into one bet. All selections must win for the bet to pay out.</p>
+            <p>These suggestions include <strong>2-leg to 6-leg combinations</strong> from the best value NFL and NBA picks based on historical data, sentiment analysis, and odds from multiple bookmakers.</p>
+            <p><strong>Combined Value</strong> = (Combined Probability × Combined Odds) - 1. Higher odds mean higher potential returns but lower probability.</p>
+            <p><strong>Note:</strong> Each multi-bet only includes one selection per game to avoid correlation. <strong>Maximum odds limited to 1:100 for realistic opportunities.</strong></p>
+        </div>
+
+        <div class="filter-container">
+            <label for="leg-filter">Filter by Legs:</label>
+            <select id="leg-filter" onchange="filterLegs(this.value)">
+                <option value="0" {% if selected_legs == 0 %}selected{% endif %}>All Multi-Bets</option>
+                <option value="2" {% if selected_legs == 2 %}selected{% endif %}>2-Leg Only</option>
+                <option value="3" {% if selected_legs == 3 %}selected{% endif %}>3-Leg Only</option>
+                <option value="4" {% if selected_legs == 4 %}selected{% endif %}>4-Leg Only</option>
+                <option value="5" {% if selected_legs == 5 %}selected{% endif %}>5-Leg Only</option>
+                <option value="6" {% if selected_legs == 6 %}selected{% endif %}>6-Leg Only</option>
+            </select>
+        </div>
+
+        {% if multibets %}
+        <div class="multibets-list">
+            {% for multi in multibets %}
+            <div class="multibet-card">
+                <div class="multibet-header">
+                    <div class="multibet-type">
+                        <span>{{ multi.type }}</span>
+                        <span class="leg-badge">{{ multi.num_legs }} Legs</span>
+                    </div>
+                    <div class="combined-stats">
+                        <div class="stat-item">
+                            <div class="stat-label">Combined Odds</div>
+                            <div class="stat-value">{{ multi.combined_odds }}</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">Combined Value</div>
+                            <div class="stat-value">{{ multi.combined_value }}</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">$10 Returns</div>
+                            <div class="stat-value">{{ multi.potential_return }}</div>
+                        </div>
+                        <div class="tag {{ multi.combined_confidence }}">{{ multi.combined_confidence }}</div>
+                    </div>
+                </div>
+
+                <div class="justification">{{ multi.justification }}</div>
+
+                <div class="legs-container">
+                    {% for leg in multi.legs %}
+                    <div class="leg">
+                        <div class="leg-header">
+                            <span class="sport-badge {{ leg.sport }}">{{ leg.sport }}</span>
+                            <div class="tag {{ leg.confidence }}">{{ leg.confidence }}</div>
+                        </div>
+                        <div class="fixture-name">{{ leg.fixture }}</div>
+                        <div class="selection">{{ leg.selection }}</div>
+                        <div class="leg-stats">
+                            <div>Odds: <strong>{{ leg.odds }}</strong></div>
+                            <div>Value: <strong style="color: var(--primary)">{{ "%.2f"|format(leg.value) }}</strong></div>
+                        </div>
+                        <div class="bookmaker">Best odds: {{ leg.bookmaker }}</div>
+                        <div style="font-size: 0.75rem; color: #94A3B8; margin-top: 8px;">
+                            {{ leg.start_time }}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <h2>No Multi-Bet Suggestions Available</h2>
+            <p>We couldn't find any multi-bet combinations with positive expected value.</p>
+            <p>This could be because there aren't enough recommended single bets or the combined odds don't provide sufficient value.</p>
+            <p>Try refreshing the data or check back later when more games are available.</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <script>
+        function filterLegs(numLegs) {
+            window.location.href = `/multibets?legs=${numLegs}`;
+        }
+    </script>
+</body>
+
+</html>

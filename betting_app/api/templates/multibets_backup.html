@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EdgeFinder Pro - Multi-Bet Parlays</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #10B981;
+            --secondary: #F59E0B;
+            --accent: #8B5CF6;
+            --nfl: #D97706;
+            --nba: #DC2626;
+            --bg-dark: #0A0E1A;
+            --bg-light: #1A1F35;
+            --card-bg: #242B42;
+            --text: #F9FAFB;
+            --text-muted: #9CA3AF;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(135deg, var(--bg-dark) 0%, #0F1419 100%);
+            color: var(--text);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        /* Hero Header */
+        .hero-header {
+            text-align: center;
+            padding: 40px 20px 60px;
+            background: linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%);
+            border-radius: 24px;
+            margin-bottom: 40px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero-header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(245, 158, 11, 0.1) 0%, transparent 70%);
+            animation: pulse 8s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1) rotate(0deg); opacity: 0.5; }
+            50% { transform: scale(1.1) rotate(180deg); opacity: 0.8; }
+        }
+
+        h1 {
+            font-size: 4rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #F59E0B 0%, #8B5CF6 50%, #10B981 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
+            letter-spacing: -2px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .tagline {
+            font-size: 1.2rem;
+            color: var(--text-muted);
+            font-weight: 400;
+            position: relative;
+            z-index: 1;
+        }
+
+        .tagline strong {
+            color: var(--secondary);
+            font-weight: 600;
+        }
+
+        /* Navigation */
+        .controls-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .nav {
+            display: flex;
+            gap: 15px;
+            background: var(--card-bg);
+            padding: 8px;
+            border-radius: 16px;
+        }
+
+        .nav a {
+            color: var(--text);
+            text-decoration: none;
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .nav a:hover {
+            background: rgba(245, 158, 11, 0.1);
+            color: var(--secondary);
+            transform: translateY(-2px);
+        }
+
+        .nav a.active {
+            background: linear-gradient(135deg, var(--secondary) 0%, #D97706 100%);
+            color: white;
+            box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+        }
+
+        select {
+            background-color: var(--card-bg);
+            color: var(--text);
+            border: 2px solid rgba(245, 158, 11, 0.3);
+            padding: 12px 40px 12px 20px;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            font-family: 'Poppins', sans-serif;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            min-width: 220px;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23F59E0B' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            background-size: 18px;
+            line-height: 1.5;
+        }
+
+        select:hover {
+            border-color: var(--secondary);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(245, 158, 11, 0.2);
+        }
+
+        select option {
+            background: var(--card-bg);
+            color: var(--text);
+            padding: 10px;
+        }
+
+        /* Multi-Bet Cards */
+        .multibet-card {
+            background: linear-gradient(135deg, var(--card-bg) 0%, #2D3548 100%);
+            padding: 28px;
+            border-radius: 20px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+            margin-bottom: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .multibet-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, var(--secondary), var(--accent), var(--primary));
+        }
+
+        .multibet-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 32px rgba(245, 158, 11, 0.3);
+        }
+
+        .multibet-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+            position: relative;
+            z-index: 1;
+        }
+
+        .multibet-type {
+            font-size: 1.5rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--secondary) 0%, #D97706 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .leg-badge {
+            background: linear-gradient(135deg, var(--secondary) 0%, #D97706 100%);
+            color: white;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 700;
+            box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+            position: relative;
+            z-index: 1;
+        }
+
+        .odds-display {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 8px;
+        }
+
+        .combined-odds {
+            font-size: 2.5rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--primary) 0%, #059669 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .potential-return {
+            font-size: 1.1rem;
+            color: var(--text-muted);
+        }
+
+        .potential-return strong {
+            color: var(--primary);
+            font-weight: 700;
+        }
+
+        /* Legs */
+        .legs-container {
+            display: grid;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .leg {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 16px;
+            border-radius: 12px;
+            border-left: 4px solid var(--primary);
+            display: grid;
+            grid-template-columns: auto 1fr auto;
+            gap: 16px;
+            align-items: center;
+        }
+
+        .sport-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            flex-shrink: 0;
+        }
+
+        .sport-icon.NFL {
+            background: linear-gradient(135deg, #D97706 0%, #B45309 100%);
+            box-shadow: 0 4px 12px rgba(217, 119, 6, 0.3);
+        }
+
+        .sport-icon.NBA {
+            background: linear-gradient(135deg, #DC2626 0%, #B91C1C 100%);
+            box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
+        }
+
+        .leg-info {
+            flex: 1;
+        }
+
+        .leg-fixture {
+            font-weight: 700;
+            font-size: 1.1rem;
+            margin-bottom: 4px;
+        }
+
+        .leg-selection {
+            color: var(--primary);
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+
+        .leg-odds {
+            text-align: right;
+        }
+
+        .leg-odds-value {
+            font-size: 1.3rem;
+            font-weight: 800;
+            color: var(--primary);
+        }
+
+        .leg-confidence {
+            font-size: 0.85rem;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-weight: 600;
+            margin-top: 4px;
+            display: inline-block;
+        }
+
+        .leg-confidence.High {
+            background: rgba(16, 185, 129, 0.2);
+            color: #10B981;
+        }
+
+        .leg-confidence.Medium {
+            background: rgba(245, 158, 11, 0.2);
+            color: #F59E0B;
+        }
+
+        .leg-confidence.Low {
+            background: rgba(107, 114, 128, 0.2);
+            color: #9CA3AF;
+        }
+
+        /* Stats */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 20px;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 12px;
+        }
+
+        .stat {
+            text-align: center;
+        }
+
+        .stat-label {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+        }
+
+        .stat-value {
+            font-size: 1.8rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--primary) 0%, #059669 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        /* Justification */
+        .justification {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 20px;
+            border-radius: 12px;
+            border-left: 4px solid var(--secondary);
+            line-height: 1.8;
+            white-space: pre-line;
+        }
+
+        .justification strong {
+            color: var(--secondary);
+            font-weight: 700;
+        }
+
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 2.5rem;
+            }
+
+            .multibet-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 16px;
+            }
+
+            .odds-display {
+                align-items: flex-start;
+            }
+
+            .leg {
+                grid-template-columns: 1fr;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <!-- Hero Header -->
+        <div class="hero-header">
+            <h1>🎰 Multi-Bet Parlays</h1>
+            <p class="tagline">Combine Your Edge • <strong>Maximize Your Returns</strong></p>
+        </div>
+
+        <!-- Navigation & Controls -->
+        <div class="controls-bar">
+            <div class="nav">
+                <a href="/">🎯 Single Bets</a>
+                <a href="/multibets" class="active">🎰 Multi-Bets</a>
+                <a href="/analytics">📊 Analytics</a>
+                <a href="/strategy">💰 Strategy</a>
+            </div>
+            <div class="controls">
+                <select id="legFilter" onchange="filterLegs(this.value)">
+                    <option value="0" {% if selected_legs==0 %}selected{% endif %}>All Parlays</option>
+                    <option value="2" {% if selected_legs==2 %}selected{% endif %}>2-Leg Parlay</option>
+                    <option value="3" {% if selected_legs==3 %}selected{% endif %}>3-Leg Parlay</option>
+                    <option value="4" {% if selected_legs==4 %}selected{% endif %}>4-Leg Parlay</option>
+                    <option value="5" {% if selected_legs==5 %}selected{% endif %}>5-Leg Parlay</option>
+                    <option value="6" {% if selected_legs==6 %}selected{% endif %}>6-Leg Parlay</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Multi-Bets -->
+        {% for multi in multibets %}
+        <div class="multibet-card">
+            <div class="multibet-header">
+                <div class="multibet-type">
+                    <span class="leg-badge">{{ multi.type }}</span>
+                </div>
+                <div class="odds-display">
+                    <div class="combined-odds">{{ multi.combined_odds }}x</div>
+                    <div class="potential-return">$10 returns <strong>{{ multi.potential_return }}</strong></div>
+                </div>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat">
+                    <div class="stat-label">Win Probability</div>
+                    <div class="stat-value">{{ multi.combined_probability }}%</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-label">Edge Value</div>
+                    <div class="stat-value">{{ multi.combined_value }}</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-label">Confidence</div>
+                    <div class="stat-value" style="font-size: 1.3rem;">{{ multi.combined_confidence }}</div>
+                </div>
+            </div>
+
+            <div class="legs-container">
+                {% for leg in multi.legs %}
+                <div class="leg">
+                    <div class="sport-icon {{ leg.sport }}">
+                        {% if leg.sport == "NFL" %}🏈
+                        {% elif leg.sport == "NBA" %}🏀
+                        {% else %}⚡
+                        {% endif %}
+                    </div>
+                    <div class="leg-info">
+                        <div class="leg-fixture">{{ leg.fixture }}</div>
+                        <div class="leg-selection">{{ leg.selection }}</div>
+                        <span class="leg-confidence {{ leg.confidence }}">{{ leg.confidence }}</span>
+                    </div>
+                    <div class="leg-odds">
+                        <div class="leg-odds-value">{{ leg.odds }}x</div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <div class="justification">{{ multi.justification }}</div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <script>
+        function filterLegs(legs) {
+            window.location.href = `/multibets?legs=${legs}`;
+        }
+    </script>
+</body>
+
+</html>

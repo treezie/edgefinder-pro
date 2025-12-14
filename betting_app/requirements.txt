@@ -1,0 +1,16 @@
+fastapi
+uvicorn[standard]
+sqlalchemy
+psycopg2-binary
+alembic
+playwright
+beautifulsoup4
+requests
+pandas
+numpy
+scikit-learn
+vaderSentiment
+python-dotenv
+python-dateutil
+jinja2
+feedparser

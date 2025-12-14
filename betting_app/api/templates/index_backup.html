@@ -1,0 +1,1003 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EdgeFinder Pro - Smart Betting Intelligence</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #10B981;
+            --secondary: #F59E0B;
+            --accent: #8B5CF6;
+            --nfl: #D97706;
+            --nba: #DC2626;
+            --bg-dark: #0A0E1A;
+            --bg-light: #1A1F35;
+            --card-bg: #242B42;
+            --text: #F9FAFB;
+            --text-muted: #9CA3AF;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(135deg, var(--bg-dark) 0%, #0F1419 100%);
+            color: var(--text);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        /* Hero Header */
+        .hero-header {
+            text-align: center;
+            padding: 40px 20px 60px;
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%);
+            border-radius: 24px;
+            margin-bottom: 40px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero-header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(16, 185, 129, 0.1) 0%, transparent 70%);
+            animation: pulse 8s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1) rotate(0deg); opacity: 0.5; }
+            50% { transform: scale(1.1) rotate(180deg); opacity: 0.8; }
+        }
+
+        .logo-container {
+            position: relative;
+            z-index: 1;
+        }
+
+        h1 {
+            font-size: 4rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #10B981 0%, #8B5CF6 50%, #F59E0B 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
+            letter-spacing: -2px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .tagline {
+            font-size: 1.2rem;
+            color: var(--text-muted);
+            font-weight: 400;
+            position: relative;
+            z-index: 1;
+        }
+
+        .tagline strong {
+            color: var(--primary);
+            font-weight: 600;
+        }
+
+        /* Navigation & Controls */
+        .controls-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .nav {
+            display: flex;
+            gap: 15px;
+            background: var(--card-bg);
+            padding: 8px;
+            border-radius: 16px;
+        }
+
+        .nav a {
+            color: var(--text);
+            text-decoration: none;
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            font-size: 1rem;
+        }
+
+        .nav a:hover {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--primary);
+            transform: translateY(-2px);
+        }
+
+        .nav a.active {
+            background: linear-gradient(135deg, var(--primary) 0%, #059669 100%);
+            color: white;
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        select {
+            background: var(--card-bg);
+            color: var(--text);
+            border: 2px solid rgba(16, 185, 129, 0.3);
+            padding: 14px 24px;
+            padding-right: 40px;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            min-width: 180px;
+            appearance: none;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2310B981' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            background-size: 20px;
+        }
+
+        select:hover {
+            border-color: var(--primary);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
+        }
+
+        select option {
+            background: var(--card-bg);
+            color: var(--text);
+            padding: 10px;
+        }
+
+        .refresh-btn {
+            background: linear-gradient(135deg, var(--primary) 0%, #059669 100%);
+            color: white;
+            border: none;
+            padding: 12px 28px;
+            border-radius: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 1rem;
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+        }
+
+        .refresh-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(16, 185, 129, 0.5);
+        }
+
+        .refresh-btn:active {
+            transform: translateY(-1px);
+        }
+
+        /* Cards Grid */
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 24px;
+        }
+
+        .card {
+            background: linear-gradient(135deg, var(--card-bg) 0%, #2D3548 100%);
+            padding: 24px;
+            border-radius: 20px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            transition: all 0.3s ease;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, var(--primary), var(--accent), var(--secondary));
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 12px 32px rgba(16, 185, 129, 0.2);
+        }
+
+        .card:hover::before {
+            opacity: 1;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 12px;
+        }
+
+        .fixture-info {
+            flex: 1;
+        }
+
+        .sport-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            flex-shrink: 0;
+        }
+
+        .sport-icon.NFL {
+            background: linear-gradient(135deg, #D97706 0%, #B45309 100%);
+            box-shadow: 0 4px 12px rgba(217, 119, 6, 0.3);
+        }
+
+        .sport-icon.NBA {
+            background: linear-gradient(135deg, #DC2626 0%, #B91C1C 100%);
+            box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
+        }
+
+        .fixture {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+            line-height: 1.3;
+        }
+
+        .market-label {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        .selection {
+            font-size: 1.3rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--primary) 0%, #059669 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 4px;
+        }
+
+        .reasoning {
+            font-size: 0.9rem;
+            color: #CBD5E1;
+            line-height: 1.8;
+            white-space: pre-line;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 16px;
+            border-radius: 12px;
+            border-left: 4px solid var(--primary);
+        }
+
+        .reasoning strong {
+            color: var(--primary);
+            font-weight: 700;
+        }
+
+        .stats {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 12px;
+        }
+
+        .value-display {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .value-label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .value-number {
+            font-size: 1.5rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--primary) 0%, #059669 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .tag {
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .tag.High {
+            background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+            color: white;
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+        }
+
+        .tag.Medium {
+            background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
+            color: white;
+            box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+        }
+
+        .tag.Low {
+            background: linear-gradient(135deg, #6B7280 0%, #4B5563 100%);
+            color: white;
+            box-shadow: 0 4px 12px rgba(107, 114, 128, 0.3);
+        }
+
+        .game-time {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            text-align: center;
+            padding: 12px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .game-time::before {
+            content: '🕒';
+            font-size: 1.1rem;
+        }
+
+        /* Sentiment Dropdown Styles */
+        .sentiment-toggle {
+            background: linear-gradient(135deg, rgba(139, 92, 246, 0.15) 0%, rgba(139, 92, 246, 0.05) 100%);
+            border: 2px solid rgba(139, 92, 246, 0.3);
+            padding: 12px 16px;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 600;
+            color: var(--accent);
+        }
+
+        .sentiment-toggle:hover {
+            background: rgba(139, 92, 246, 0.2);
+            border-color: var(--accent);
+            transform: translateY(-2px);
+        }
+
+        .sentiment-arrow {
+            transition: transform 0.3s ease;
+            font-size: 1.2rem;
+        }
+
+        .sentiment-arrow.open {
+            transform: rotate(180deg);
+        }
+
+        .sentiment-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.4s ease;
+        }
+
+        .sentiment-content.open {
+            max-height: 800px;
+        }
+
+        .sentiment-inner {
+            padding: 20px 0;
+        }
+
+        .sentiment-consensus {
+            background: linear-gradient(135deg, rgba(0, 0, 0, 0.4) 0%, rgba(0, 0, 0, 0.2) 100%);
+            padding: 16px;
+            border-radius: 12px;
+            margin-bottom: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .sentiment-bar {
+            display: flex;
+            height: 32px;
+            border-radius: 8px;
+            overflow: hidden;
+            margin-bottom: 12px;
+        }
+
+        .sentiment-bullish {
+            background: linear-gradient(90deg, #10B981 0%, #059669 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 700;
+            font-size: 0.85rem;
+        }
+
+        .sentiment-bearish {
+            background: linear-gradient(90deg, #DC2626 0%, #B91C1C 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 700;
+            font-size: 0.85rem;
+        }
+
+        .expert-card {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 14px;
+            border-radius: 12px;
+            margin-bottom: 10px;
+            border-left: 4px solid var(--accent);
+        }
+
+        .expert-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .expert-name {
+            font-weight: 700;
+            color: var(--text);
+            font-size: 0.95rem;
+        }
+
+        .expert-specialty {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        .expert-sentiment-badge {
+            padding: 4px 10px;
+            border-radius: 8px;
+            font-size: 0.75rem;
+            font-weight: 700;
+        }
+
+        .expert-sentiment-badge.Bullish {
+            background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+            color: white;
+        }
+
+        .expert-sentiment-badge.Neutral {
+            background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
+            color: white;
+        }
+
+        .expert-sentiment-badge.Bearish {
+            background: linear-gradient(135deg, #DC2626 0%, #B91C1C 100%);
+            color: white;
+        }
+
+        .expert-reasoning {
+            font-size: 0.85rem;
+            line-height: 1.6;
+            color: var(--text-muted);
+        }
+
+        .consensus-badge {
+            padding: 8px 16px;
+            border-radius: 12px;
+            font-weight: 700;
+            font-size: 1rem;
+            color: white;
+        }
+
+        .dashboard-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-box {
+            background: linear-gradient(135deg, var(--card-bg) 0%, #2D3548 100%);
+            padding: 24px;
+            border-radius: 16px;
+            text-align: center;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .stat-box-label {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+        }
+
+        .stat-box-value {
+            font-size: 2.5rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .filters-section {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-bottom: 30px;
+            padding: 24px;
+            background: linear-gradient(135deg, var(--card-bg) 0%, #2D3548 100%);
+            border-radius: 20px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+            align-items: flex-end;
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            min-width: 160px;
+            flex: 1;
+        }
+
+        .filter-label {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .filter-select {
+            background: rgba(0, 0, 0, 0.4);
+            color: var(--text);
+            border: 2px solid rgba(16, 185, 129, 0.3);
+            padding: 12px 16px;
+            border-radius: 12px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-family: 'Poppins', sans-serif;
+        }
+
+        .filter-select:hover {
+            border-color: var(--primary);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
+        }
+
+        .filter-select:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+        }
+
+        .reset-btn {
+            background: linear-gradient(135deg, #DC2626 0%, #B91C1C 100%);
+            color: white;
+            border: none;
+            padding: 12px 28px;
+            border-radius: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.95rem;
+            box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
+        }
+
+        .reset-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(220, 38, 38, 0.5);
+        }
+
+        .filter-results {
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            margin-bottom: 20px;
+            font-weight: 600;
+        }
+
+        .filter-results span {
+            color: var(--primary);
+            font-weight: 800;
+        }
+
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 2.5rem;
+            }
+
+            .grid {
+                grid-template-columns: 1fr;
+            }
+
+            .controls-bar {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .nav {
+                flex-direction: column;
+            }
+
+            .filters-section {
+                flex-direction: column;
+            }
+
+            .filter-group {
+                min-width: 100%;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <!-- Hero Header -->
+        <div class="hero-header">
+            <div class="logo-container">
+                <h1>⚡ EdgeFinder Pro</h1>
+                <p class="tagline">AI-Powered Sports Betting Intelligence • <strong>Real Odds, Real Value</strong></p>
+            </div>
+        </div>
+
+        <!-- Navigation & Controls -->
+        <div class="controls-bar">
+            <div class="nav">
+                <a href="/" class="active">🎯 Single Bets</a>
+                <a href="/multibets">🎰 Multi-Bets</a>
+                <a href="/analytics">📊 Analytics</a>
+                <a href="/strategy">💰 Strategy</a>
+            </div>
+            <div class="controls">
+                <button class="refresh-btn" onclick="refreshData()">🔄 Refresh Data</button>
+            </div>
+        </div>
+
+        <!-- Advanced Filters Section -->
+        <div class="filters-section">
+            <div class="filter-group">
+                <label class="filter-label">Sport</label>
+                <select class="filter-select" id="sportFilter" onchange="applyFilters()">
+                    <option value="all">All Sports</option>
+                    <option value="NFL">🏈 NFL</option>
+                    <option value="NBA">🏀 NBA</option>
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label class="filter-label">Market Type</label>
+                <select class="filter-select" id="marketFilter" onchange="applyFilters()">
+                    <option value="all">All Markets</option>
+                    <option value="Moneyline">Moneyline</option>
+                    <option value="Spread">Spread</option>
+                    <option value="Total Points">Total Points</option>
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label class="filter-label">Confidence</label>
+                <select class="filter-select" id="confidenceFilter" onchange="applyFilters()">
+                    <option value="all">All Confidence</option>
+                    <option value="High">High Only</option>
+                    <option value="Medium">Medium+</option>
+                    <option value="Low">All Levels</option>
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label class="filter-label">Min Edge Value</label>
+                <select class="filter-select" id="valueFilter" onchange="applyFilters()">
+                    <option value="0">All Values</option>
+                    <option value="0.05">≥ 0.05 (Good)</option>
+                    <option value="0.10">≥ 0.10 (Strong)</option>
+                    <option value="0.15">≥ 0.15 (Excellent)</option>
+                    <option value="0.20">≥ 0.20 (Elite)</option>
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label class="filter-label">Sort By</label>
+                <select class="filter-select" id="sortFilter" onchange="applyFilters()">
+                    <option value="value">Edge Value (High-Low)</option>
+                    <option value="confidence">Confidence Level</option>
+                    <option value="time">Game Time (Earliest)</option>
+                    <option value="sport">Sport</option>
+                </select>
+            </div>
+
+            <button class="reset-btn" onclick="resetFilters()">Reset All</button>
+        </div>
+
+        <!-- Dashboard Stats -->
+        <div class="dashboard-stats">
+            <div class="stat-box">
+                <div class="stat-box-label">Total Bets</div>
+                <div class="stat-box-value">{{ predictions|length }}</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-box-label">High Confidence</div>
+                <div class="stat-box-value">{{ predictions|selectattr('confidence', 'equalto', 'High')|list|length }}</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-box-label">Avg Edge Value</div>
+                <div class="stat-box-value">
+                    {% set total_value = predictions|map(attribute='value')|map('float')|sum %}
+                    {% set count = predictions|length %}
+                    {{ "%.2f"|format(total_value / count if count > 0 else 0) }}
+                </div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-box-label">Sports Coverage</div>
+                <div class="stat-box-value">{{ predictions|map(attribute='sport')|unique|list|length }}</div>
+            </div>
+        </div>
+
+        <!-- Filter Results Counter -->
+        <div class="filter-results" id="filterResults">
+            Showing <span id="visibleCount">{{ predictions|length }}</span> of <span id="totalCount">{{ predictions|length }}</span> bets
+        </div>
+
+        <!-- Bets Grid -->
+        <div class="grid">
+            {% for pred in predictions %}
+            <div class="card"
+                 data-sport="{{ pred.sport }}"
+                 data-market="{{ pred.market }}"
+                 data-confidence="{{ pred.confidence }}"
+                 data-value="{{ pred.value }}"
+                 data-time="{{ pred.start_time }}">
+                <div class="card-header">
+                    <div class="fixture-info">
+                        <div class="fixture">{{ pred.fixture }}</div>
+                        <div class="market-label">{{ pred.market }}</div>
+                    </div>
+                    <div class="sport-icon {{ pred.sport }}">
+                        {% if pred.sport == "NFL" %}🏈
+                        {% elif pred.sport == "NBA" %}🏀
+                        {% else %}⚡
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="selection">{{ pred.selection }}</div>
+
+                <div class="reasoning">{{ pred.reasoning }}</div>
+
+                <div class="stats">
+                    <div class="value-display">
+                        <span class="value-label">Edge Value</span>
+                        <span class="value-number">{{ pred.value }}</span>
+                        <div style="height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; margin-top: 8px; overflow: hidden;">
+                            <div style="height: 100%; background: linear-gradient(90deg, var(--primary), var(--accent)); width: {{ (pred.value|float * 100)|round(0)|int }}%; transition: width 0.5s ease;"></div>
+                        </div>
+                    </div>
+                    <div class="tag {{ pred.confidence }}">{{ pred.confidence }}</div>
+                </div>
+
+                <div class="game-time">{{ pred.start_time }}</div>
+
+                <!-- Expert Sentiment Dropdown -->
+                <div class="sentiment-toggle" onclick="toggleSentiment(event)">
+                    <span>📊 Expert Analysis & Market Sentiment</span>
+                    <span class="sentiment-arrow">▼</span>
+                </div>
+                <div class="sentiment-content">
+                    <div class="sentiment-inner">
+                        <!-- Consensus -->
+                        <div class="sentiment-consensus">
+                            <div>
+                                <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 4px;">Expert Consensus</div>
+                                <div class="consensus-badge" style="background: {{ pred.sentiment.consensus_color }};">{{ pred.sentiment.consensus }}</div>
+                            </div>
+                            <div style="text-align: right;">
+                                <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 4px;">Market Sentiment</div>
+                                <div style="font-size: 1.2rem; font-weight: 700; color: var(--primary);">{{ pred.sentiment.bullish_pct }}% Bullish</div>
+                            </div>
+                        </div>
+
+                        <!-- Sentiment Bar -->
+                        <div class="sentiment-bar">
+                            <div class="sentiment-bullish" style="width: {{ pred.sentiment.bullish_pct }}%;">
+                                {% if pred.sentiment.bullish_pct > 15 %}{{ pred.sentiment.bullish_pct }}%{% endif %}
+                            </div>
+                            <div class="sentiment-bearish" style="width: {{ pred.sentiment.bearish_pct }}%;">
+                                {% if pred.sentiment.bearish_pct > 15 %}{{ pred.sentiment.bearish_pct }}%{% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Expert Opinions -->
+                        <div style="margin-top: 20px;">
+                            <div style="font-size: 0.9rem; font-weight: 700; color: var(--secondary); margin-bottom: 12px;">Expert Opinions</div>
+                            {% for expert in pred.sentiment.experts %}
+                            <div class="expert-card">
+                                <div class="expert-header">
+                                    <div>
+                                        <div class="expert-name">{{ expert.name }}</div>
+                                        <div class="expert-specialty">{{ expert.specialty }}</div>
+                                    </div>
+                                    <div style="text-align: right;">
+                                        <div class="expert-sentiment-badge {{ expert.sentiment }}">{{ expert.sentiment }}</div>
+                                        <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">{{ expert.confidence }}</div>
+                                    </div>
+                                </div>
+                                <div class="expert-reasoning">{{ expert.reasoning }}</div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <script>
+        function toggleSentiment(event) {
+            const toggle = event.currentTarget;
+            const card = toggle.closest('.card');
+            const content = card.querySelector('.sentiment-content');
+            const arrow = toggle.querySelector('.sentiment-arrow');
+
+            content.classList.toggle('open');
+            arrow.classList.toggle('open');
+        }
+
+        async function refreshData() {
+            const btn = document.querySelector('.refresh-btn');
+            btn.textContent = '🔄 Refreshing...';
+            btn.disabled = true;
+            try {
+                await fetch('/refresh', { method: 'POST' });
+                window.location.reload();
+            } catch (e) {
+                alert('Error refreshing data');
+                btn.textContent = '🔄 Refresh Data';
+                btn.disabled = false;
+            }
+        }
+
+        function applyFilters() {
+            const sportFilter = document.getElementById('sportFilter').value;
+            const marketFilter = document.getElementById('marketFilter').value;
+            const confidenceFilter = document.getElementById('confidenceFilter').value;
+            const valueFilter = parseFloat(document.getElementById('valueFilter').value);
+            const sortFilter = document.getElementById('sortFilter').value;
+
+            const cards = Array.from(document.querySelectorAll('.card'));
+
+            // Filter cards
+            cards.forEach(card => {
+                const sport = card.dataset.sport;
+                const market = card.dataset.market;
+                const confidence = card.dataset.confidence;
+                const value = parseFloat(card.dataset.value);
+
+                let show = true;
+
+                // Sport filter
+                if (sportFilter !== 'all' && sport !== sportFilter) {
+                    show = false;
+                }
+
+                // Market filter
+                if (marketFilter !== 'all' && market !== marketFilter) {
+                    show = false;
+                }
+
+                // Confidence filter
+                if (confidenceFilter === 'High' && confidence !== 'High') {
+                    show = false;
+                } else if (confidenceFilter === 'Medium' && confidence === 'Low') {
+                    show = false;
+                }
+
+                // Value filter
+                if (valueFilter > 0 && value < valueFilter) {
+                    show = false;
+                }
+
+                card.style.display = show ? 'block' : 'none';
+            });
+
+            // Sort visible cards
+            const visibleCards = cards.filter(card => card.style.display !== 'none');
+            const grid = document.querySelector('.grid');
+
+            visibleCards.sort((a, b) => {
+                if (sortFilter === 'value') {
+                    return parseFloat(b.dataset.value) - parseFloat(a.dataset.value);
+                } else if (sortFilter === 'confidence') {
+                    const confOrder = { 'High': 3, 'Medium': 2, 'Low': 1 };
+                    return confOrder[b.dataset.confidence] - confOrder[a.dataset.confidence];
+                } else if (sortFilter === 'time') {
+                    return a.dataset.time.localeCompare(b.dataset.time);
+                } else if (sortFilter === 'sport') {
+                    return a.dataset.sport.localeCompare(b.dataset.sport);
+                }
+                return 0;
+            });
+
+            // Re-append in sorted order
+            visibleCards.forEach(card => {
+                grid.appendChild(card);
+            });
+
+            // Update counter
+            updateFilterCounter(visibleCards.length, cards.length);
+        }
+
+        function resetFilters() {
+            document.getElementById('sportFilter').value = 'all';
+            document.getElementById('marketFilter').value = 'all';
+            document.getElementById('confidenceFilter').value = 'all';
+            document.getElementById('valueFilter').value = '0';
+            document.getElementById('sortFilter').value = 'value';
+            applyFilters();
+        }
+
+        function updateFilterCounter(visible, total) {
+            document.getElementById('visibleCount').textContent = visible;
+            document.getElementById('totalCount').textContent = total;
+
+            // Update dashboard stats
+            const cards = Array.from(document.querySelectorAll('.card')).filter(c => c.style.display !== 'none');
+            const highConfCount = cards.filter(c => c.dataset.confidence === 'High').length;
+
+            // Update stats boxes if they exist
+            const statBoxes = document.querySelectorAll('.stat-box-value');
+            if (statBoxes.length >= 2) {
+                statBoxes[0].textContent = visible; // Total Bets
+                statBoxes[1].textContent = highConfCount; // High Confidence
+            }
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            const cards = document.querySelectorAll('.card');
+            updateFilterCounter(cards.length, cards.length);
+        });
+    </script>
+</body>
+
+</html>

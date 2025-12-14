@@ -1,0 +1,1083 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EdgeFinder Pro - Smart Betting Intelligence</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            /* Core Palette - Premium Dark Theme */
+            --slate-primary: #4A5F6D;
+            --slate-medium: #5C7A8A;
+            --slate-dark: #2D3A45;
+            --teal-accent: #7FB8BE;
+            --teal-glow: rgba(127, 184, 190, 0.6);
+            --orange-accent: #FF6B35;
+            --orange-glow: rgba(255, 107, 53, 0.6);
+            --bg-dark: #0F172A;
+            --bg-card: rgba(30, 41, 59, 0.7);
+            --text-white: #FFFFFF;
+            --text-light: #E2E8F0;
+            --text-muted: #94A3B8;
+
+            /* Glassmorphism */
+            --glass-bg: rgba(255, 255, 255, 0.03);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-light);
+            min-height: 100vh;
+            padding: 0;
+            position: relative;
+        }
+
+        /* Background Image with Overlay */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: url('/static/images/stadium.jpg') no-repeat center center fixed;
+            background-size: cover;
+            opacity: 0.15;
+            z-index: -1;
+            filter: grayscale(80%) contrast(120%);
+        }
+
+        h1,
+        h2,
+        h3,
+        h4,
+        .brand-font {
+            font-family: 'Outfit', sans-serif;
+        }
+
+        .container {
+            max-width: 1420px;
+            margin: 0 auto;
+            padding: 24px 28px;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Navigation Bar */
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 32px;
+            padding: 16px 28px;
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(16px);
+            border-radius: 16px;
+            border: 1px solid var(--glass-border);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        .logo-section {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .logo-text,
+        .logo-text:hover,
+        .logo-text:focus,
+        .logo-text:active,
+        .logo-text:visited {
+            font-size: 1.5rem;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            color: var(--text-white);
+            font-family: 'Outfit', sans-serif;
+            text-decoration: none !important;
+            border: none !important;
+            box-shadow: none !important;
+        }
+
+        .logo-badge {
+            background: rgba(127, 184, 190, 0.15);
+            border: 1px solid var(--teal-accent);
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            color: var(--teal-accent);
+        }
+
+        .nav {
+            display: flex;
+            gap: 8px;
+        }
+
+        .nav a {
+            color: var(--text-muted);
+            text-decoration: none;
+            padding: 10px 20px;
+            border-radius: 10px;
+            font-weight: 500;
+            font-size: 0.95rem;
+            transition: all 0.2s ease;
+        }
+
+        .nav a:hover {
+            color: var(--text-white);
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .nav a.active {
+            background: linear-gradient(135deg, var(--teal-accent) 0%, #5C7A8A 100%);
+            color: white;
+            box-shadow: 0 4px 14px rgba(127, 184, 190, 0.25);
+            font-weight: 600;
+        }
+
+        .refresh-btn {
+            background: rgba(127, 184, 190, 0.15);
+            border: 1px solid var(--teal-accent);
+            color: var(--teal-accent);
+            padding: 10px 20px;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.95rem;
+            transition: all 0.2s ease;
+            margin-left: 8px;
+        }
+
+        .refresh-btn:hover {
+            background: rgba(127, 184, 190, 0.25);
+            transform: translateY(-1px);
+        }
+
+        .refresh-btn:disabled {
+            opacity: 0.7;
+            cursor: wait;
+        }
+
+        /* Hero section */
+        .hero-section {
+            padding: 48px 32px;
+            margin-bottom: 36px;
+            background: linear-gradient(135deg, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.9) 100%);
+            border-radius: 20px;
+            border: 1px solid var(--glass-border);
+            position: relative;
+            overflow: hidden;
+            backdrop-filter: blur(10px);
+        }
+
+        .hero-section::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 300px;
+            height: 100%;
+            background: radial-gradient(circle at center, rgba(127, 184, 190, 0.1) 0%, transparent 70%);
+            pointer-events: none;
+        }
+
+        h1 {
+            font-size: 3rem;
+            font-weight: 700;
+            letter-spacing: -1px;
+            margin-bottom: 14px;
+            color: var(--text-white);
+            line-height: 1.1;
+        }
+
+        .tagline {
+            font-size: 1.2rem;
+            color: var(--text-muted);
+            font-weight: 400;
+        }
+
+        .tagline em {
+            color: var(--teal-accent);
+            font-style: normal;
+            font-weight: 600;
+        }
+
+        /* Control Section */
+        .controls-section {
+            margin-bottom: 28px;
+            display: flex;
+            justify-content: flex-end;
+            gap: 14px;
+        }
+
+        .refresh-btn {
+            background: linear-gradient(135deg, var(--orange-accent) 0%, #F76C31 100%);
+            color: white;
+            border: none;
+            padding: 12px 26px;
+            border-radius: 11px;
+            font-weight: 600;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 12px rgba(255, 107, 53, 0.25);
+        }
+
+        .refresh-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 18px rgba(255, 107, 53, 0.4);
+        }
+
+        /* Filters */
+        .filters-section {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 20px;
+            margin-bottom: 32px;
+            padding: 28px;
+            background: rgba(30, 41, 59, 0.6);
+            backdrop-filter: blur(12px);
+            border-radius: 16px;
+            border: 1px solid var(--glass-border);
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .filter-label {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        select,
+        .filter-select {
+            background: rgba(15, 23, 42, 0.6);
+            color: var(--text-white);
+            border: 1px solid var(--glass-border);
+            padding: 12px 16px;
+            border-radius: 10px;
+            font-size: 0.95rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-family: 'Inter', sans-serif;
+            appearance: none;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%237FB8BE' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 14px center;
+            background-size: 16px;
+            padding-right: 40px;
+        }
+
+        select:hover,
+        .filter-select:hover {
+            border-color: var(--teal-accent);
+            background: rgba(15, 23, 42, 0.8);
+        }
+
+        select:focus,
+        .filter-select:focus {
+            outline: none;
+            border-color: var(--teal-accent);
+            box-shadow: 0 0 0 2px rgba(127, 184, 190, 0.2);
+        }
+
+        select option {
+            background: var(--bg-dark);
+            color: var(--text-white);
+            padding: 12px;
+        }
+
+        /* Dashboard Stats */
+        .dashboard-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 24px;
+            margin-bottom: 32px;
+        }
+
+        .stat-box {
+            background: linear-gradient(145deg, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.8) 100%);
+            padding: 28px;
+            border-radius: 16px;
+            border: 1px solid var(--glass-border);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+            transition: transform 0.2s ease;
+        }
+
+        .stat-box:hover {
+            transform: translateY(-3px);
+            border-color: rgba(127, 184, 190, 0.3);
+        }
+
+        .stat-box-label {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        .stat-box-value {
+            font-size: 2.8rem;
+            font-weight: 700;
+            color: var(--teal-accent);
+            letter-spacing: -1px;
+            font-family: 'Outfit', sans-serif;
+        }
+
+        /* Filter Results Counter */
+        .filter-results {
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            margin-bottom: 24px;
+        }
+
+        .filter-results span {
+            color: var(--orange-accent);
+            font-weight: 700;
+        }
+
+        /* Cards Grid */
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+            gap: 28px;
+            margin-bottom: 40px;
+        }
+
+        .card {
+            background: var(--bg-card);
+            padding: 28px;
+            border-radius: 20px;
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+            border: 1px solid var(--glass-border);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+            backdrop-filter: blur(12px);
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, var(--teal-accent), var(--orange-accent));
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-6px);
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3);
+            border-color: rgba(127, 184, 190, 0.3);
+        }
+
+        .card:hover::before {
+            opacity: 1;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .fixture-info {
+            flex: 1;
+        }
+
+        .fixture {
+            font-size: 1.3rem;
+            font-weight: 600;
+            margin-bottom: 6px;
+            line-height: 1.3;
+            color: var(--text-white);
+            font-family: 'Outfit', sans-serif;
+        }
+
+        .market-label {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        .sport-icon {
+            width: 56px;
+            height: 56px;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            flex-shrink: 0;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        .sport-icon.NFL {
+            background: linear-gradient(135deg, #D97706 0%, #92400E 100%);
+        }
+
+        .sport-icon.NBA {
+            background: linear-gradient(135deg, #DC2626 0%, #991B1B 100%);
+        }
+
+        .selection {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--teal-accent);
+            margin-bottom: 20px;
+            font-family: 'Outfit', sans-serif;
+        }
+
+        .reasoning {
+            font-size: 0.95rem;
+            color: var(--text-light);
+            line-height: 1.7;
+            white-space: pre-line;
+            background: rgba(0, 0, 0, 0.2);
+            padding: 18px;
+            border-radius: 12px;
+            border-left: 3px solid var(--teal-accent);
+            margin-bottom: 20px;
+        }
+
+        .reasoning strong {
+            color: var(--orange-accent);
+            font-weight: 600;
+        }
+
+        .stats {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 12px;
+            margin-bottom: 16px;
+            border: 1px solid var(--glass-border);
+        }
+
+        .value-display {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .value-label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 600;
+        }
+
+        .value-number {
+            font-size: 1.6rem;
+            font-weight: 700;
+            color: var(--teal-accent);
+            font-family: 'Outfit', sans-serif;
+        }
+
+        .tag {
+            padding: 8px 16px;
+            border-radius: 50px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .tag.High {
+            background: rgba(127, 184, 190, 0.15);
+            color: var(--teal-accent);
+            border: 1px solid rgba(127, 184, 190, 0.3);
+        }
+
+        .tag.Medium {
+            background: rgba(245, 158, 11, 0.15);
+            color: #FBBF24;
+            border: 1px solid rgba(245, 158, 11, 0.3);
+        }
+
+        .tag.Low {
+            background: rgba(148, 163, 184, 0.15);
+            color: #CBD5E1;
+            border: 1px solid rgba(148, 163, 184, 0.3);
+        }
+
+        .game-time {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            text-align: center;
+            padding: 12px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font-weight: 500;
+            margin-bottom: 16px;
+        }
+
+        /* Sentiment Dropdown */
+        .sentiment-toggle {
+            background: rgba(127, 184, 190, 0.05);
+            border: 1px solid rgba(127, 184, 190, 0.2);
+            padding: 14px 18px;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 600;
+            color: var(--teal-accent);
+            font-size: 0.9rem;
+        }
+
+        .sentiment-toggle:hover {
+            background: rgba(127, 184, 190, 0.1);
+            border-color: var(--teal-accent);
+        }
+
+        .sentiment-arrow {
+            transition: transform 0.3s ease;
+            font-size: 1.1rem;
+        }
+
+        .sentiment-arrow.open {
+            transform: rotate(180deg);
+        }
+
+        .sentiment-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .sentiment-content.open {
+            max-height: 1000px;
+        }
+
+        .sentiment-inner {
+            padding: 20px 0;
+        }
+
+        .sentiment-consensus {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 18px;
+            border-radius: 12px;
+            margin-bottom: 18px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid var(--glass-border);
+        }
+
+        .sentiment-bar {
+            display: flex;
+            height: 32px;
+            border-radius: 8px;
+            overflow: hidden;
+            margin-bottom: 16px;
+            background: rgba(0, 0, 0, 0.3);
+        }
+
+        .sentiment-bullish {
+            background: linear-gradient(90deg, var(--teal-accent) 0%, #5C7A8A 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+
+        .sentiment-bearish {
+            background: linear-gradient(90deg, #DC2626 0%, #991B1B 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+
+        .expert-card {
+            background: rgba(255, 255, 255, 0.03);
+            padding: 16px;
+            border-radius: 12px;
+            margin-bottom: 12px;
+            border-left: 3px solid var(--teal-accent);
+            transition: all 0.2s ease;
+        }
+
+        .expert-card:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .expert-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .expert-name {
+            font-weight: 600;
+            color: var(--text-white);
+            font-size: 0.95rem;
+        }
+
+        .expert-specialty {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            font-style: italic;
+        }
+
+        .expert-sentiment-badge {
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .expert-sentiment-badge.Bullish {
+            background: rgba(127, 184, 190, 0.15);
+            color: var(--teal-accent);
+        }
+
+        .expert-sentiment-badge.Neutral {
+            background: rgba(245, 158, 11, 0.15);
+            color: #FBBF24;
+        }
+
+        .expert-sentiment-badge.Bearish {
+            background: rgba(220, 38, 38, 0.15);
+            color: #F87171;
+        }
+
+        .expert-reasoning {
+            font-size: 0.9rem;
+            line-height: 1.6;
+            color: var(--text-light);
+        }
+
+        .consensus-badge {
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.95rem;
+            color: white;
+        }
+
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 2.2rem;
+            }
+
+            .grid {
+                grid-template-columns: 1fr;
+            }
+
+            .top-bar {
+                flex-direction: column;
+                gap: 16px;
+                align-items: stretch;
+            }
+
+            .nav {
+                flex-direction: column;
+                gap: 8px;
+            }
+
+            .filters-section {
+                grid-template-columns: 1fr;
+            }
+
+            .dashboard-stats {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <!-- Top Navigation Bar -->
+        <div class="top-bar">
+            <div class="logo-section">
+                <a href="/landing" class="logo-text">EdgeFinder Pro</a>
+                <div class="logo-badge">Intelligence</div>
+            </div>
+            <nav class="nav">
+                <a href="/bets" class="active">Single Bets</a>
+                <a href="/multibets">Multi-Bets</a>
+                <a href="/props">Prop Builder</a>
+                <a href="/analytics">Analytics</a>
+                <a href="/strategy">Strategy</a>
+                <a href="/news">News</a>
+            </nav> <button class="refresh-btn" onclick="refreshData()">Refresh Data</button>
+        </div>
+    </div>
+
+    <!-- Hero Section -->
+    <div class="hero-section">
+        <div class="hero-content">
+            <h1>Smart Betting Intelligence</h1>
+            <p class="tagline">AI-powered sports analysis with <em>real-time odds and value detection</em></p>
+        </div>
+    </div>
+
+    <!-- Controls -->
+    <div class="controls-section">
+        <button class="refresh-btn" onclick="refreshData()">Refresh Data</button>
+    </div>
+
+    <!-- Advanced Filters Section -->
+    <div class="filters-section">
+        <div class="filter-group">
+            <label class="filter-label">Sport</label>
+            <select class="filter-select" id="sportFilter" onchange="applyFilters()">
+                <option value="all">All Sports</option>
+                {% for sport in sports %}
+                <option value="{{ sport }}" {% if current_sport==sport %}selected{% endif %}>{{ sport }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="filter-group">
+            <label class="filter-label">Game</label>
+            <select class="filter-select" id="gameFilter" onchange="applyFilters()">
+                <option value="all">All Games</option>
+            </select>
+        </div>
+
+        <div class="filter-group">
+            <label class="filter-label">Market Type</label>
+            <select class="filter-select" id="marketFilter" onchange="applyFilters()">
+                <option value="all">All Markets</option>
+                <option value="Moneyline">Moneyline</option>
+                <option value="Spread">Spread</option>
+                <option value="Total Points">Total Points</option>
+            </select>
+        </div>
+
+        <div class="filter-group">
+            <label class="filter-label">Confidence</label>
+            <select class="filter-select" id="confidenceFilter" onchange="applyFilters()">
+                <option value="all">All Confidence</option>
+                <option value="High">High Only</option>
+                <option value="Medium">Medium+</option>
+                <option value="Low">All Levels</option>
+            </select>
+        </div>
+
+        <div class="filter-group">
+            <label class="filter-label">Min Edge Value</label>
+            <select class="filter-select" id="valueFilter" onchange="applyFilters()">
+                <option value="0">All Values</option>
+                <option value="0.05">≥ 0.05 (Good)</option>
+                <option value="0.10">≥ 0.10 (Strong)</option>
+                <option value="0.15">≥ 0.15 (Excellent)</option>
+            </select>
+        </div>
+
+        <button class="reset-btn" onclick="resetFilters()"
+            style="background: rgba(220, 38, 38, 0.1); border: 1px solid rgba(220, 38, 38, 0.3); color: #F87171; padding: 12px 20px; border-radius: 10px; font-weight: 600; cursor: pointer;">Reset</button>
+    </div>
+
+    <!-- Dashboard Stats -->
+    <div class="dashboard-stats">
+        <div class="stat-box">
+            <div class="stat-box-label">Active Opportunities</div>
+            <div class="stat-box-value" id="totalCount">0</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-box-label">High Confidence</div>
+            <div class="stat-box-value" id="highCount" style="color: var(--teal-accent);">0</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-box-label">Avg. Edge Value</div>
+            <div class="stat-box-value" id="avgValue" style="color: var(--orange-accent);">0%</div>
+        </div>
+    </div>
+
+    <div class="filter-results" id="filterResults">
+        Showing all predictions
+    </div>
+
+    <!-- Predictions Grid -->
+    <div class="grid" id="predictionsGrid">
+        {% for pred in predictions %}
+        <div class="card" data-sport="{{ pred.sport }}" data-fixture="{{ pred.fixture }}"
+            data-market="{{ pred.market }}" data-confidence="{{ pred.confidence }}" data-value="{{ pred.value }}">
+
+            <div class="card-header">
+                <div class="fixture-info">
+                    <div class="fixture">{{ pred.fixture }}</div>
+                    <div class="market-label">{{ pred.market }}</div>
+                </div>
+                <div class="sport-icon {{ pred.sport }}">
+                    {% if pred.sport == 'NFL' %}🏈{% elif pred.sport == 'NBA' %}🏀{% else %}🏆{% endif %}
+                </div>
+            </div>
+
+            <div class="selection">{{ pred.selection }}</div>
+
+            <div class="game-time">
+                {{ pred.start_time }}
+            </div>
+
+            <div class="stats">
+                <div class="value-display">
+                    <span class="value-label">Edge Value</span>
+                    <span class="value-number">{{ (pred.value|float * 100)|round(1) }}%</span>
+                </div>
+                <span class="tag {{ pred.confidence }}">{{ pred.confidence }}</span>
+            </div>
+
+            <div class="reasoning">
+                {{ pred.reasoning }}
+            </div>
+
+            <!-- Sentiment Analysis Dropdown -->
+            <div class="sentiment-section">
+                <div class="sentiment-toggle" onclick="toggleSentiment(this)">
+                    <span>Expert Sentiment Analysis</span>
+                    <span class="sentiment-arrow">▼</span>
+                </div>
+                <div class="sentiment-content">
+                    <div class="sentiment-inner">
+                        <div class="sentiment-consensus">
+                            <div>
+                                <div
+                                    style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; margin-bottom: 4px;">
+                                    Consensus</div>
+                                <div
+                                    style="font-weight: 700; font-size: 1.1rem; color: {{ pred.sentiment.consensus_color }}">
+                                    {{ pred.sentiment.consensus }}</div>
+                            </div>
+                            <div class="consensus-badge" style="background: {{ pred.sentiment.consensus_color }}">
+                                {{ pred.sentiment.bullish_pct }}% Bullish
+                            </div>
+                        </div>
+
+                        <div class="sentiment-bar">
+                            <div class="sentiment-bullish" style="width: {{ pred.sentiment.bullish_pct }}%">{{
+                                pred.sentiment.bullish_pct }}%</div>
+                            <div class="sentiment-bearish" style="width: {{ pred.sentiment.bearish_pct }}%">{{
+                                pred.sentiment.bearish_pct }}%</div>
+                        </div>
+
+                        <div class="experts-list">
+                            {% for expert in pred.sentiment.experts %}
+                            <div class="expert-card">
+                                <div class="expert-header">
+                                    <div>
+                                        <div class="expert-name">{{ expert.name }}</div>
+                                        <div class="expert-specialty">{{ expert.specialty }}</div>
+                                    </div>
+                                    <div class="expert-sentiment-badge {{ expert.sentiment }}">{{ expert.sentiment
+                                        }}</div>
+                                </div>
+                                <div class="expert-reasoning">
+                                    {{ expert.reasoning }}
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    </div>
+
+    <script>
+        function toggleSentiment(element) {
+            const content = element.nextElementSibling;
+            const arrow = element.querySelector('.sentiment-arrow');
+
+            content.classList.toggle('open');
+            arrow.classList.toggle('open');
+        }
+
+        function refreshData() {
+            const btn = document.querySelector('.refresh-btn');
+            btn.textContent = 'Refreshing...';
+            btn.disabled = true;
+
+            fetch('/refresh', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    location.reload();
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    btn.textContent = 'Refresh Data';
+                    btn.disabled = false;
+                });
+        }
+
+        function populateGameFilter() {
+            const cards = document.querySelectorAll('.card');
+            const gameFilter = document.getElementById('gameFilter');
+            const games = new Set();
+
+            cards.forEach(card => {
+                if (card.dataset.fixture) {
+                    games.add(card.dataset.fixture);
+                }
+            });
+
+            const sortedGames = Array.from(games).sort();
+
+            sortedGames.forEach(game => {
+                const option = document.createElement('option');
+                option.value = game;
+                option.textContent = game;
+                gameFilter.appendChild(option);
+            });
+        }
+
+        function applyFilters() {
+            const sport = document.getElementById('sportFilter').value;
+            const game = document.getElementById('gameFilter').value;
+            const market = document.getElementById('marketFilter').value;
+            const confidence = document.getElementById('confidenceFilter').value;
+            const minValue = parseFloat(document.getElementById('valueFilter').value);
+
+            const cards = document.querySelectorAll('.card');
+            let visibleCount = 0;
+            let highConfCount = 0;
+            let totalValue = 0;
+
+            cards.forEach(card => {
+                const cardSport = card.dataset.sport;
+                const cardFixture = card.dataset.fixture;
+                const cardMarket = card.dataset.market;
+                const cardConfidence = card.dataset.confidence;
+                const cardValue = parseFloat(card.dataset.value);
+
+                let show = true;
+
+                // Case-insensitive check for 'all'
+                if (sport.toLowerCase() !== 'all' && cardSport !== sport) show = false;
+
+                // Game filter logic
+                if (game !== 'all' && cardFixture !== game) show = false;
+
+                // Market filter logic
+                if (market !== 'all') {
+                    if (market === 'Moneyline' && cardMarket !== 'Moneyline') show = false;
+                    if (market === 'Spread' && cardMarket !== 'Spread') show = false;
+                    if (market === 'Total Points' && cardMarket !== 'Total Points') show = false;
+                }
+
+                if (confidence !== 'all') {
+                    if (confidence === 'High' && cardConfidence !== 'High') show = false;
+                    if (confidence === 'Medium' && (cardConfidence === 'Low')) show = false;
+                }
+
+                if (cardValue < minValue) show = false;
+
+                if (show) {
+                    card.style.display = 'block';
+                    visibleCount++;
+                    if (cardConfidence === 'High') highConfCount++;
+                    totalValue += cardValue;
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+
+            // Update stats
+            document.getElementById('totalCount').textContent = visibleCount;
+            document.getElementById('highCount').textContent = highConfCount;
+
+            const avgVal = visibleCount > 0 ? (totalValue / visibleCount * 100).toFixed(1) : 0;
+            document.getElementById('avgValue').textContent = avgVal + '%';
+
+            // Update results text
+            const resultsText = document.getElementById('filterResults');
+            if (visibleCount === 0) {
+                resultsText.innerHTML = 'No predictions match your filters';
+            } else {
+                resultsText.innerHTML = `Showing <span>${visibleCount}</span> predictions`;
+            }
+        }
+
+        function resetFilters() {
+            document.getElementById('sportFilter').value = 'all';
+            document.getElementById('gameFilter').value = 'all';
+            document.getElementById('marketFilter').value = 'all';
+            document.getElementById('confidenceFilter').value = 'all';
+            document.getElementById('valueFilter').value = '0';
+            applyFilters();
+        }
+
+        async function refreshData() {
+            const btn = document.querySelector('.refresh-btn');
+            const originalText = btn.innerText;
+            btn.innerText = 'Refreshing...';
+            btn.disabled = true;
+
+            try {
+                const response = await fetch('/api/refresh', { method: 'POST' });
+                if (response.ok) {
+                    location.reload();
+                } else {
+                    alert('Failed to refresh data');
+                    btn.innerText = originalText;
+                    btn.disabled = false;
+                }
+            } catch (error) {
+                console.error('Error refreshing data:', error);
+                alert('Error refreshing data');
+                btn.innerText = originalText;
+                btn.disabled = false;
+            }
+        }
+
+        // Initialize stats on load
+        document.addEventListener('DOMContentLoaded', () => {
+            populateGameFilter();
+            applyFilters();
+        });
+    </script>
+</body>
+
+</html>

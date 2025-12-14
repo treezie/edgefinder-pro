@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EdgeFinder Pro - Premium Sports Intelligence</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+
+    <style>
+        :root {
+            /* Core Palette - Keeping original theme but refined */
+            --slate-primary: #4A5F6D;
+            --slate-medium: #5C7A8A;
+            --slate-dark: #2D3A45;
+            --teal-accent: #7FB8BE;
+            --teal-glow: rgba(127, 184, 190, 0.6);
+            --orange-accent: #FF6B35;
+            --orange-glow: rgba(255, 107, 53, 0.6);
+            --bg-dark: #0F172A;
+            --text-white: #FFFFFF;
+            --text-light: #E2E8F0;
+            --text-muted: #94A3B8;
+
+            /* Glassmorphism */
+            --glass-bg: rgba(255, 255, 255, 0.05);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-light);
+            overflow-x: hidden;
+        }
+
+        h1,
+        h2,
+        h3,
+        h4,
+        .brand-font {
+            font-family: 'Outfit', sans-serif;
+        }
+
+        /* Navigation */
+        nav {
+            position: fixed;
+            top: 0;
+            width: 100%;
+            z-index: 1000;
+            padding: 1.5rem 0;
+            transition: all 0.3s ease;
+        }
+
+        nav.scrolled {
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(12px);
+            padding: 1rem 0;
+            border-bottom: 1px solid var(--glass-border);
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 2rem;
+        }
+
+        .nav-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: var(--text-white);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .logo span {
+            color: var(--teal-accent);
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+            align-items: center;
+        }
+
+        .nav-links a {
+            color: var(--text-light);
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.3s;
+        }
+
+        .nav-links a:hover {
+            color: var(--teal-accent);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--orange-accent), #F76C31);
+            color: white;
+            padding: 0.8rem 2rem;
+            border-radius: 50px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: transform 0.3s, box-shadow 0.3s;
+            border: none;
+            cursor: pointer;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(255, 107, 53, 0.3);
+        }
+
+        /* Hero Section */
+        .hero {
+            height: 100vh;
+            position: relative;
+            display: flex;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        .hero-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+        }
+
+        .hero-bg::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(to right, rgba(15, 23, 42, 0.95) 0%, rgba(15, 23, 42, 0.7) 50%, rgba(15, 23, 42, 0.4) 100%);
+        }
+
+        .hero-bg img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            animation: scaleSlow 20s infinite alternate;
+        }
+
+        @keyframes scaleSlow {
+            from {
+                transform: scale(1);
+            }
+
+            to {
+                transform: scale(1.1);
+            }
+        }
+
+        .hero-content {
+            max-width: 800px;
+            padding-top: 4rem;
+        }
+
+        .hero-badge {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            background: rgba(127, 184, 190, 0.1);
+            border: 1px solid var(--teal-accent);
+            border-radius: 50px;
+            color: var(--teal-accent);
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            backdrop-filter: blur(4px);
+        }
+
+        .hero h1 {
+            font-size: clamp(3rem, 6vw, 5rem);
+            line-height: 1.1;
+            margin-bottom: 1.5rem;
+            background: linear-gradient(to right, #fff, #cbd5e1);
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            color: transparent;
+        }
+
+        .hero p {
+            font-size: 1.25rem;
+            color: var(--text-muted);
+            margin-bottom: 2.5rem;
+            max-width: 600px;
+            line-height: 1.6;
+        }
+
+        .hero-stats {
+            display: flex;
+            gap: 3rem;
+            margin-top: 3rem;
+            border-top: 1px solid var(--glass-border);
+            padding-top: 2rem;
+        }
+
+        .stat-item h3 {
+            font-size: 2.5rem;
+            color: var(--teal-accent);
+            margin-bottom: 0.2rem;
+        }
+
+        .stat-item p {
+            font-size: 0.9rem;
+            margin-bottom: 0;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* Features Grid */
+        .features {
+            padding: 8rem 0;
+            position: relative;
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 5rem;
+        }
+
+        .section-header h2 {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        .section-header p {
+            color: var(--text-muted);
+            font-size: 1.2rem;
+        }
+
+        .bento-grid {
+            display: grid;
+            grid-template-columns: repeat(12, 1fr);
+            grid-auto-rows: minmax(300px, auto);
+            gap: 1.5rem;
+        }
+
+        .bento-item {
+            background: var(--slate-dark);
+            border-radius: 24px;
+            overflow: hidden;
+            position: relative;
+            border: 1px solid var(--glass-border);
+            transition: transform 0.3s;
+        }
+
+        .bento-item:hover {
+            transform: translateY(-5px);
+            border-color: var(--teal-accent);
+        }
+
+        .bento-content {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            padding: 2rem;
+            background: linear-gradient(to top, rgba(0, 0, 0, 0.9), transparent);
+            z-index: 2;
+        }
+
+        .bento-bg {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.5s;
+        }
+
+        .bento-item:hover .bento-bg {
+            transform: scale(1.05);
+        }
+
+        /* Grid Layouts */
+        .item-large {
+            grid-column: span 8;
+        }
+
+        .item-medium {
+            grid-column: span 4;
+        }
+
+        .item-tall {
+            grid-column: span 4;
+            grid-row: span 2;
+        }
+
+        .bento-item h3 {
+            font-size: 1.8rem;
+            margin-bottom: 0.5rem;
+            color: var(--text-white);
+        }
+
+        .bento-item p {
+            color: var(--text-light);
+            font-size: 1rem;
+            opacity: 0.9;
+        }
+
+        /* Technology Section */
+        .tech-section {
+            padding: 8rem 0;
+            background: linear-gradient(to bottom, var(--bg-dark), #1e293b);
+        }
+
+        .tech-container {
+            display: flex;
+            align-items: center;
+            gap: 4rem;
+        }
+
+        .tech-image {
+            flex: 1;
+            border-radius: 24px;
+            overflow: hidden;
+            position: relative;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+        }
+
+        .tech-image img {
+            width: 100%;
+            display: block;
+        }
+
+        .tech-content {
+            flex: 1;
+        }
+
+        .tech-list {
+            list-style: none;
+            margin-top: 2rem;
+        }
+
+        .tech-list li {
+            display: flex;
+            align-items: flex-start;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .check-icon {
+            background: var(--teal-accent);
+            color: var(--bg-dark);
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            font-weight: bold;
+        }
+
+        /* CTA Section */
+        .cta-section {
+            padding: 6rem 0;
+            text-align: center;
+            background: radial-gradient(circle at center, #1e293b 0%, var(--bg-dark) 100%);
+        }
+
+        .cta-box {
+            background: linear-gradient(135deg, rgba(127, 184, 190, 0.1), rgba(255, 107, 53, 0.1));
+            border: 1px solid var(--glass-border);
+            border-radius: 32px;
+            padding: 5rem 2rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .cta-box::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: url('/static/images/field.jpeg');
+            background-size: cover;
+            opacity: 0.1;
+            z-index: -1;
+        }
+
+        /* Responsive */
+        @media (max-width: 968px) {
+            .hero h1 {
+                font-size: 3.5rem;
+            }
+
+            .bento-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .item-large,
+            .item-medium,
+            .item-tall {
+                grid-column: span 1;
+            }
+
+            .tech-container {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <nav id="navbar">
+        <div class="container nav-content">
+            <a href="/" class="logo">
+                EdgeFinder <span>Pro</span>
+            </a>
+            <div class="nav-links">
+                <a href="#features">Features</a>
+                <a href="#technology">Technology</a>
+                <a href="/props">Prop Builder</a>
+                <a href="/news">News</a>
+                <a href="/bets" class="btn-primary">Launch App</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-bg">
+            <img src="/static/images/stadium.jpg" alt="Stadium Background">
+        </div>
+        <div class="container">
+            <div class="hero-content">
+                <span class="hero-badge">AI-Powered Intelligence</span>
+                <h1>Dominate the Market with Data-Driven Insights</h1>
+                <p>Stop guessing. Start investing. EdgeFinder Pro leverages advanced machine learning to identify
+                    high-value betting opportunities in real-time.</p>
+
+                <div style="display: flex; gap: 1rem;">
+                    <a href="/bets" class="btn-primary">Get Started Now</a>
+                    <a href="#features"
+                        style="padding: 0.8rem 2rem; border: 1px solid rgba(255,255,255,0.2); border-radius: 50px; color: white; text-decoration: none; font-weight: 600;">Learn
+                        More</a>
+                </div>
+
+                <div class="hero-stats">
+                    <div class="stat-item">
+                        <h3>87%</h3>
+                        <p>Model Accuracy</p>
+                    </div>
+                    <div class="stat-item">
+                        <h3>24/7</h3>
+                        <p>Real-time Updates</p>
+                    </div>
+                    <div class="stat-item">
+                        <h3>+15%</h3>
+                        <p>Avg. ROI</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Grid -->
+    <section id="features" class="features">
+        <div class="container">
+            <div class="section-header">
+                <h2>Elite Sports Coverage</h2>
+                <p>Comprehensive analytics across major leagues</p>
+            </div>
+
+            <div class="bento-grid">
+                <!-- NBA Feature -->
+                <div class="bento-item item-large">
+                    <img src="/static/images/raptors.jpg" alt="NBA Analytics" class="bento-bg">
+                    <div class="bento-content">
+                        <h3>NBA Advanced Analytics</h3>
+                        <p>Deep dive into player efficiency, team pace, and matchup advantages.</p>
+                    </div>
+                </div>
+
+                <!-- NFL Feature -->
+                <div class="bento-item item-medium">
+                    <img src="/static/images/mahomes.jpeg" alt="NFL Insights" class="bento-bg">
+                    <div class="bento-content">
+                        <h3>NFL Pro Insights</h3>
+                        <p>Quarterback ratings, weather impacts, and injury correlations.</p>
+                    </div>
+                </div>
+
+                <!-- Live Odds -->
+                <div class="bento-item item-medium">
+                    <img src="/static/images/field.webp" alt="Live Odds" class="bento-bg">
+                    <div class="bento-content">
+                        <h3>Real-time Value</h3>
+                        <p>Instant detection of line movements and arbitrage opportunities.</p>
+                    </div>
+                </div>
+
+                <!-- Player Props -->
+                <div class="bento-item item-medium">
+                    <img src="/static/images/Durant-1.jpg" alt="Player Props" class="bento-bg"
+                        style="object-position: top;">
+                    <div class="bento-content">
+                        <h3>Player Prop Dominance</h3>
+                        <p>Predictive modeling for points, rebounds, assists, and more.</p>
+                    </div>
+                </div>
+
+                <!-- NRL Expansion -->
+                <div class="bento-item item-medium">
+                    <img src="/static/images/walsh.avif" alt="NRL Expansion" class="bento-bg"
+                        style="object-position: top;">
+                    <div class="bento-content">
+                        <h3>NRL Expansion</h3>
+                        <p>Coming soon: Comprehensive coverage of the National Rugby League.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Technology Section -->
+    <section id="technology" class="tech-section">
+        <div class="container">
+            <div class="tech-container">
+                <div class="tech-image">
+                    <img src="/static/images/Dak-Prescott-playoffs.jpg" alt="Technology">
+                    <div
+                        style="position: absolute; inset: 0; background: linear-gradient(to right, rgba(15,23,42,0.8), transparent);">
+                        const response = await fetch('/api/refresh', { method: 'POST' });
+                    </div>
+                </div>
+                <div class="tech-content">
+                    <span style="color: var(--teal-accent); font-weight: 600; letter-spacing: 1px;">THE
+                        TECHNOLOGY</span>
+                    <h2 style="font-size: 2.5rem; margin: 1rem 0 2rem;">Built on Advanced Algorithms</h2>
+                    <p style="color: var(--text-muted); margin-bottom: 2rem; line-height: 1.7;">
+                        Our proprietary engine processes millions of data points per second, comparing historical trends
+                        with real-time market conditions to find the edge that others miss.
+                    </p>
+
+                    <ul class="tech-list">
+                        <li>
+                            <div class="check-icon">✓</div>
+                            <div>
+                                <h4 style="color: white; margin-bottom: 0.2rem;">Machine Learning Models</h4>
+                                <p style="font-size: 0.9rem; color: var(--text-muted);">Continuously adapting neural
+                                    networks that learn from every game.</p>
+                            </div>
+                        </li>
+                        <li>
+                            <div class="check-icon">✓</div>
+                            <div>
+                                <h4 style="color: white; margin-bottom: 0.2rem;">Sentiment Analysis</h4>
+                                <p style="font-size: 0.9rem; color: var(--text-muted);">Aggregating expert opinions and
+                                    sharp money movements.</p>
+                            </div>
+                        </li>
+                        <li>
+                            <div class="check-icon">✓</div>
+                            <div>
+                                <h4 style="color: white; margin-bottom: 0.2rem;">Risk Management</h4>
+                                <p style="font-size: 0.9rem; color: var(--text-muted);">Smart bankroll allocation
+                                    strategies to maximize long-term growth.</p>
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="cta-section">
+        <div class="container">
+            <div class="cta-box">
+                <h2>Ready to Beat the Books?</h2>
+                <p style="margin: 1.5rem auto; max-width: 600px; color: var(--text-light);">Join thousands of smart
+                    bettors using EdgeFinder Pro to gain a mathematical advantage.</p>
+                <a href="/bets" class="btn-primary" style="font-size: 1.2rem; padding: 1rem 3rem;">Start Winning
+                    Today</a>
+            </div>
+        </div>
+    </section>
+
+    <footer
+        style="padding: 4rem 0; border-top: 1px solid var(--glass-border); text-align: center; color: var(--text-muted);">
+        <div class="container">
+            <p>&copy; 2025 EdgeFinder Pro. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script>
+        // Navbar scroll effect
+        window.addEventListener('scroll', () => {
+            const nav = document.getElementById('navbar');
+            if (window.scrollY > 50) {
+                nav.classList.add('scrolled');
+            } else {
+                nav.classList.remove('scrolled');
+            }
+        });
+    </script>
+</body>
+
+</html>

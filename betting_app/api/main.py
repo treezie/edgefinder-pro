@@ -13,7 +13,7 @@ from datetime import timezone, datetime
 import pytz
 from dotenv import load_dotenv
 from sqlalchemy.orm import Session
-from database.db import get_db, SessionLocal
+from database.db import get_db, SessionLocal, engine, Base
 from database.models import Fixture, Odds, Prediction
 from analysis.pipeline import AnalysisPipeline
 
@@ -38,6 +38,9 @@ from analysis.prop_generator import PropGenerator
 player_fetcher = PlayerStatsFetcher()
 team_fetcher = TeamStatsFetcher()
 injury_fetcher = InjuryFetcher()
+# Create tables if they don't exist
+Base.metadata.create_all(bind=engine)
+
 prop_generator = PropGenerator()
 
 def format_brisbane_time(utc_datetime):

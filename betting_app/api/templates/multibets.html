@@ -580,7 +580,7 @@
             margin-left: 8px;
         }
 
-        ``` .refresh-btn:hover {
+        .refresh-btn:hover {
             background: rgba(127, 184, 190, 0.25);
             transform: translateY(-1px);
         }
@@ -742,6 +742,11 @@
                     <option value="4">4-Leg Multis</option>
                     <option value="5">5-Leg Multis</option>
                     <option value="6">6-Leg Multis</option>
+                </select></div>
+            <div class="filter-group"><label class="filter-label">Sort By</label><select class="filter-select"
+                    id="sortFilter" onchange="applyFilters()">
+                    <option value="value">Highest Value</option>
+                    <option value="probability">Highest Probability</option>
                 </select></div><button class="reset-btn" onclick="resetFilters()">Reset</button>
         </div>
         <div class="filter-results" id="filterResults">Showing all multi-bets </div>
@@ -750,7 +755,8 @@
 
             {% for multi in multibets %}
 
-            <div class="multi-card" data-legs="{{ multi.num_legs }}" data-sports='{{ multi.sports|tojson }}'>
+            <div class="multi-card" data-legs="{{ multi.num_legs }}" data-sports='{{ multi.sports|tojson }}'
+                data-value="{{ multi.combined_value }}" data-probability="{{ multi.combined_probability }}">
                 <div class="multi-header">
                     <div class="multi-title"> {{ multi.num_legs }}
 
@@ -858,22 +864,33 @@
                     if (show) {
                         card.style.display = 'block';
                         visibleCount++;
-                    }
-
-                    else {
+                    } else {
                         card.style.display = 'none';
                     }
                 });
 
-                // Update results text
-                const resultsText = document.getElementById('filterResults');
+                // Sorting Logic
+                const sortBy = document.getElementById('sortFilter').value;
+                const container = document.getElementById('multibetsGrid');
+                const visibleCards = Array.from(cards).filter(c => c.style.display !== 'none');
 
+                visibleCards.sort((a, b) => {
+                    const aVal = parseFloat(a.dataset[sortBy]);
+                    const bVal = parseFloat(b.dataset[sortBy]);
+
+                    // Sort descending (High to Low)
+                    return bVal - aVal;
+                });
+
+                // Re-append sorted cards
+                visibleCards.forEach(card => container.appendChild(card));
+
+                // Update text
+                const resultText = document.getElementById('filterResults');
                 if (visibleCount === 0) {
-                    resultsText.innerHTML = 'No multi-bets match your filters';
-                }
-
-                else {
-                    resultsText.innerHTML = `Showing \u003cspan\u003e${visibleCount}\u003c/span\u003e multi-bets`;
+                    resultText.innerHTML = 'No multi-bets match your filters';
+                } else {
+                    resultText.innerHTML = `Showing <span>${visibleCount}</span> multi-bets sorted by ${sortBy === 'value' ? 'Expect Value' : 'Win Probability'}`;
                 }
             }
 

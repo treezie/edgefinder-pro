@@ -241,13 +241,14 @@ class OddsAPIFetcher:
 
         # If no API key, use web scraping
         if not self.api_key:
-            if self.enable_web_scraping and self.web_scraper:
-                print(f"⚠ No API key - using web scraping for {home_team} vs {away_team}")
-                result = await self.web_scraper.get_all_markets_for_game(sport, home_team, away_team)
-                if result: return result
+            # Force simulation to prevent memory crash on Free Tier
+            # if self.enable_web_scraping and self.web_scraper:
+            #     print(f"⚠ No API key - using web scraping for {home_team} vs {away_team}")
+            #     result = await self.web_scraper.get_all_markets_for_game(sport, home_team, away_team)
+            #     if result: return result
             
             # Fallback if both fail
-            print(f"⚠ No API key and web scraping failed - using simulated fallback for {home_team} vs {away_team}")
+            print(f"⚠ No API key - using simulated fallback for {home_team} vs {away_team} (Safe Mode)")
             return self._generate_fallback_odds(sport, home_team, away_team)
 
 

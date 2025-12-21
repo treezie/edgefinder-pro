@@ -100,7 +100,95 @@ class PropGenerator:
             avg = float(apg_match.group(1))
             self._add_market(props, "Assists", avg, variance=0.25)
 
-    def _generate_nfl_markets(self, stats_str: str, position: str, props: Dict):
+    def _generate_nfl_markets(self, stats_data: Any, position: str, props: Dict):
+        """Parse NFL stats - handles both string summary and detailed dict"""
+        
+        # 1. Handle Detailed Dictionary Stats (New Method)
+        if isinstance(stats_data, dict) and any(k in stats_data for k in ["YDS", "TD"]):
+            self._generate_nfl_markets_from_dict(stats_data, position, props)
+            return
+
+        # 2. Handle String Summary (Old/Fallback Method)
+        stats_str = ""
+        if isinstance(stats_data, str):
+            stats_str = stats_data
+        elif isinstance(stats_data, dict):
+            # If it's a dict but not the detailed one we expect, try to find a string repr
+            stats_str = stats_data.get("displayName", "")
+            if not stats_str: 
+                 # Flatten values
+                 stats_str = " ".join([str(v) for v in stats_data.values() if isinstance(v, (str, int))])
+        
+        self._generate_nfl_markets_from_string(stats_str, position, props)
+
+    def _generate_nfl_markets_from_dict(self, stats: Dict[str, str], position: str, props: Dict):
+        """Generate markets from detailed stats dictionary (e.g. {'YDS': '1000', 'TD': '5', 'GP': '10'})"""
+        try:
+            # Parse common stats
+            games_played = int(stats.get("games_played", stats.get("GP", 0)) or 0)
+            if games_played == 0:
+                # Try to guess games played or default to a mid-season number if stats are high
+                # If total yards > 200, assume at least a few games.
+                # Let's default to 1 for safety if we can't determine, to avoid dividing by huge numbers?
+                # Actually, better to assume it's a SEASON TOTAL and divide by an estimated game count 
+                # if we lack GP.
+                games_played = 1 # We will adjust logic below
+                
+            def get_val(keys):
+                for k in keys:
+                    if k in stats:
+                        val = stats[k].replace(',', '')
+                        return float(val) if val else 0.0
+                return 0.0
+
+            # Passing
+            if position == "QB":
+                pass_yds = get_val(["YDS", "PASS_YDS"])
+                pass_tds = get_val(["TD", "PASS_TD"])
+                
+                # Deduce per game avg
+                if games_played > 1:
+                    avg_yds = pass_yds / games_played
+                    avg_tds = pass_tds / games_played
+                else:
+                    # If GP unknown, use heuristic
+                    avg_yds = pass_yds if pass_yds < 400 else pass_yds / 6.0
+                    avg_tds = pass_tds if pass_tds < 5 else pass_tds / 6.0
+                
+                # Sanity Caps
+                if avg_yds > 350: avg_yds = 280.0
+                if avg_yds < 100: avg_yds = 200.0 # Fallback for starters
+                
+                self._add_market(props, "Passing Yards", avg_yds, variance=0.10, is_yards=True)
+                self._add_market(props, "Passing TDs", avg_tds, variance=0.40)
+
+            # Rushing / Receiving
+            if position in ["RB", "WR", "TE"]:
+                # Try to distinguish Rushing vs Receiving if possible
+                # The detailed stats might be mixed if we just passed a flat dict.
+                # But usually "YDS" is the main yardage stat for the primary role.
+                
+                total_yds = get_val(["YDS", "REC_YDS", "RUSH_YDS"])
+                total_tds = get_val(["TD", "REC_TD", "RUSH_TD"])
+                
+                if games_played > 1:
+                    avg_yds = total_yds / games_played
+                else:
+                    avg_yds = total_yds if total_yds < 150 else total_yds / 6.0
+                
+                # Sanity Caps
+                if avg_yds > 150: avg_yds = 90.0
+                if avg_yds < 15: avg_yds = 35.0 # Ensure min line for starters
+                
+                label = "Rushing Yards" if position == "RB" else "Receiving Yards"
+                self._add_market(props, label, avg_yds, variance=0.20, is_yards=True)
+
+        except Exception as e:
+            print(f"Error parsing NFL dict stats: {e}")
+            # Fallback
+            self._generate_simulated_markets("NFL", position, props)
+
+    def _generate_nfl_markets_from_string(self, stats_str: str, position: str, props: Dict):
         """Parse NFL stats string (e.g., '1234 Yds, 10 TD') - this is SEASON TOTAL usually"""
         # Note: statsSummary usually shows season totals. We need to estimate per-game averages.
         # Assuming ~17 game season, or we can look for specific game log data.

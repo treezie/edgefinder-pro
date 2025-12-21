@@ -46,6 +46,31 @@ class AnalysisPipeline:
             if sport not in self.sentiment_fetchers:
                 self.sentiment_fetchers[sport] = SentimentFetcher(sport)
 
+            # CLEAR STALE DATA: Delete existing Odds and Predictions for upcoming games in this sport.
+            # This ensures we don't aggregate old odds (e.g. 1.90) with new odds (1.80) and incorrectly show the old one.
+            try:
+                from datetime import datetime
+                print(f"   🧹 Clearing stale {sport} data...")
+                
+                # Find upcoming fixtures for this sport
+                upcoming_fixtures = self.db.query(Fixture).filter(
+                    Fixture.sport == sport,
+                    Fixture.start_time > datetime.utcnow()
+                ).all()
+                
+                fixture_ids = [f.id for f in upcoming_fixtures]
+                
+                if fixture_ids:
+                    # Delete Odds
+                    self.db.query(Odds).filter(Odds.fixture_id.in_(fixture_ids)).delete(synchronize_session=False)
+                    # Delete Predictions
+                    self.db.query(Prediction).filter(Prediction.fixture_id.in_(fixture_ids)).delete(synchronize_session=False)
+                    self.db.commit()
+                    print(f"   ✅ Cleared data for {len(fixture_ids)} upcoming fixtures")
+            except Exception as e:
+                print(f"   ⚠️ Error clearing stale data: {e}")
+                self.db.rollback()
+
             try:
                 scraper = MockScraper(sport)
                 # Add timeout for fetching odds (Increased to 300s for web scraping)

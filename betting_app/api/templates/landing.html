@@ -611,6 +611,28 @@
         </div>
     </footer>
 
+    <div id="loading-overlay"
+        style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.95); z-index: 9999; justify-content: center; align-items: center; flex-direction: column; backdrop-filter: blur(10px);">
+        <div class="loader"
+            style="border: 4px solid rgba(255, 255, 255, 0.1); border-top: 4px solid #7FB8BE; border-radius: 50%; width: 60px; height: 60px; animation: spin 1s linear infinite; box-shadow: 0 0 20px rgba(127, 184, 190, 0.3);">
+        </div>
+        <h3 style="color: #FFFFFF; margin-top: 24px; font-family: 'Outfit', sans-serif; font-size: 1.5rem;">Initializing
+            EdgeFinder Pro...</h3>
+        <p style="color: #94A3B8; font-size: 1rem; margin-top: 8px;">Fetching real-time odds and analytics</p>
+    </div>
+
+    <style>
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+
     <script>
         // Navbar scroll effect
         window.addEventListener('scroll', () => {
@@ -620,6 +642,40 @@
             } else {
                 nav.classList.remove('scrolled');
             }
+        });
+
+        function showLoading(e) {
+            // Prevent default just to show the loading immediately, 
+            // but we actually want the navigation to happen.
+            // Since it's a synchronous navigation, the browser might freeze valid updates
+            // but the overlay should render first if we give it a microtask.
+
+            const overlay = document.getElementById('loading-overlay');
+            overlay.style.display = 'flex';
+
+            // Allow the click to proceed mostly naturally, but ensuring DOM updates
+            // We don't strictly need to prevent default if we just let the browser handle it,
+            // but sometimes the browser halts painting to wait for the response.
+            // A small hack is often used: show loader, then Navigate.
+
+            // However, for a simple <a> tag, the browser usually renders pending changes before request.
+            // If it doesn't, we can use: e.preventDefault(); window.location.href = e.currentTarget.href;
+
+            // Let's rely on standard click but update DOM first.
+        }
+
+        // Attach to specific links
+        document.addEventListener('DOMContentLoaded', () => {
+            const entryLinks = document.querySelectorAll('a[href="/bets"]');
+            entryLinks.forEach(link => {
+                link.addEventListener('click', (e) => {
+                    // Don't show loader if opening in new tab/window
+                    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+
+                    const overlay = document.getElementById('loading-overlay');
+                    overlay.style.display = 'flex';
+                });
+            });
         });
     </script>
 </body>

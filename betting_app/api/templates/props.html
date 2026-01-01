@@ -326,7 +326,7 @@
                 <a href="/strategy">Strategy</a>
                 <a href="/news">News</a>
             </nav>
-            <button class="btn btn-outline-light btn-sm" onclick="location.reload()">Refresh Data</button>
+            <button class="btn btn-outline-light btn-sm" onclick="refreshPageView()">Refresh Data</button>
         </div>
 
         <div class="props-container">
@@ -366,6 +366,14 @@
         </div>
 
         <script>
+            function refreshPageView() {
+                if (window.triggerSmartRefresh) {
+                    window.triggerSmartRefresh();
+                } else {
+                    window.location.reload();
+                }
+            }
+
             async function loadProps() {
                 const gameId = document.getElementById('gameSelect').value;
                 const container = document.getElementById('propsList');

@@ -1050,25 +1050,26 @@
         }
 
         async function refreshData() {
-            const btn = document.querySelector('.refresh-btn');
-            const originalText = btn.innerText;
-            btn.innerText = 'Refreshing...';
-            btn.disabled = true;
+            if (window.triggerSmartRefresh) {
+                window.triggerSmartRefresh();
+            } else {
+                // Fallback if modal script hasn't loaded yet
+                const btn = document.querySelector('.refresh-btn');
+                btn.innerText = 'Refreshing...';
 
-            try {
-                const response = await fetch('/api/refresh', { method: 'POST' });
-                if (response.ok) {
-                    location.reload();
-                } else {
-                    alert('Failed to refresh data');
-                    btn.innerText = originalText;
-                    btn.disabled = false;
+                try {
+                    const response = await fetch('/api/refresh', { method: 'POST' });
+                    if (response.ok) {
+                        location.reload();
+                    } else {
+                        alert('Failed to refresh data');
+                        btn.innerText = 'Refresh Data';
+                    }
+                } catch (error) {
+                    console.error('Error refreshing data:', error);
+                    alert('Error refreshing data');
+                    btn.innerText = 'Refresh Data';
                 }
-            } catch (error) {
-                console.error('Error refreshing data:', error);
-                alert('Error refreshing data');
-                btn.innerText = originalText;
-                btn.disabled = false;
             }
         }
 

@@ -1,41 +1,29 @@
 <!-- Loading Modal -->
 <div id="loadingModal"
-    class="fixed inset-0 bg-gray-900 bg-opacity-90 z-50 flex flex-col items-center justify-center hidden backdrop-blur-sm">
-    <div
-        class="bg-gray-800 border border-gray-700 rounded-2xl p-8 max-w-md w-full text-center shadow-2xl relative overflow-hidden">
-        <!-- Glow effect -->
-        <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-500 to-emerald-400"></div>
-
-        <div class="mb-6 relative">
-            <div class="w-16 h-16 border-4 border-gray-700 border-t-emerald-500 rounded-full animate-spin mx-auto">
-            </div>
-            <div class="absolute top-0 left-0 w-full h-full flex items-center justify-center">
-                <i class="fas fa-robot text-emerald-500 text-lg"></i>
-            </div>
-        </div>
-
-        <h2 class="text-2xl font-bold text-white mb-2">AI Analysis In Progress</h2>
-        <p class="text-gray-400 mb-6">Please wait while we scrape real-time data and run machine learning models.</p>
-
-        <!-- Progress Bar -->
-        <div class="w-full bg-gray-700 rounded-full h-3 mb-4 overflow-hidden">
-            <div id="loadingProgress" class="bg-emerald-500 h-3 rounded-full transition-all duration-100 ease-linear"
-                style="width: 0%"></div>
-        </div>
-
-        <div class="flex justify-between text-sm text-gray-400 font-mono">
-            <span id="loadingStage">Initializing...</span>
-            <span id="countdownTimer">60s</span>
-        </div>
+    style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.95); z-index: 9999; justify-content: center; align-items: center; flex-direction: column; backdrop-filter: blur(10px);">
+    <div class="loader"
+        style="border: 4px solid rgba(255, 255, 255, 0.1); border-top: 4px solid #7FB8BE; border-radius: 50%; width: 60px; height: 60px; animation: spin 1s linear infinite; box-shadow: 0 0 20px rgba(127, 184, 190, 0.3);">
     </div>
+    <h3 style="color: #FFFFFF; margin-top: 24px; font-family: 'Outfit', sans-serif; font-size: 1.5rem;">Analyzing Market
+        Data...</h3>
+    <p style="color: #94A3B8; font-size: 1rem; margin-top: 8px;">Finding the best multi-bet combinations</p>
 </div>
+
+<style>
+    @keyframes spin {
+        0% {
+            transform: rotate(0deg);
+        }
+
+        100% {
+            transform: rotate(360deg);
+        }
+    }
+</style>
 
 <script>
     document.addEventListener('DOMContentLoaded', function () {
         const modal = document.getElementById('loadingModal');
-        const progressBar = document.getElementById('loadingProgress');
-        const stageText = document.getElementById('loadingStage');
-        const timerText = document.getElementById('countdownTimer');
 
         // Check if we need to refresh (fresh session or stale data)
         const lastRefresh = localStorage.getItem('last_refresh_timestamp');
@@ -48,39 +36,11 @@
             startRefreshProcess();
         }
 
+        // Expose function for manual triggering related to navigation if needed
+        window.triggerSmartRefresh = startRefreshProcess;
+
         function startRefreshProcess() {
-            modal.classList.remove('hidden');
-
-            let timeLeft = 60;
-            const totalTime = 60;
-
-            // Stages for simulated feedback
-            const stages = [
-                { time: 55, text: "Scraping Odds..." },
-                { time: 45, text: "Fetching Player Stats..." },
-                { time: 30, text: "Analyzing Injuries..." },
-                { time: 15, text: "Running AI Simulations..." },
-                { time: 5, text: "Finalizing Predictions..." }
-            ];
-
-            const interval = setInterval(() => {
-                timeLeft--;
-                timerText.textContent = `${timeLeft}s`;
-
-                // Update Progress
-                const progress = ((totalTime - timeLeft) / totalTime) * 100;
-                progressBar.style.width = `${progress}%`;
-
-                // Update Stage Text
-                const currentStage = stages.find(s => timeLeft <= s.time);
-                if (currentStage) {
-                    stageText.textContent = currentStage.text;
-                }
-
-                if (timeLeft <= 0) {
-                    clearInterval(interval);
-                }
-            }, 1000);
+            modal.style.display = 'flex';
 
             // Trigger Backend Refresh
             fetch('/api/refresh', { method: 'POST' })
@@ -89,24 +49,13 @@
                     console.log("Refresh complete:", data);
                     localStorage.setItem('last_refresh_timestamp', Date.now().toString());
 
-                    // Allow the animation to play out a bit if it finished too fast, or finish immediately
-                    // For better UX, let's wait until at least 50% progress or just finish gracefully
-                    setTimeout(() => {
-                        clearInterval(interval);
-                        progressBar.style.width = '100%';
-                        stageText.textContent = "Complete!";
-                        timerText.textContent = "0s";
-
-                        setTimeout(() => {
-                            modal.classList.add('hidden');
-                            window.location.reload();
-                        }, 500);
-                    }, 1000);
+                    // Simple reload to show new data
+                    window.location.reload();
                 })
                 .catch(err => {
                     console.error("Refresh failed:", err);
-                    stageText.textContent = "Error refreshing data.";
-                    stageText.classList.add("text-red-500");
+                    alert("Error refreshing data. Please try again.");
+                    modal.style.display = 'none';
                 });
         }
     });

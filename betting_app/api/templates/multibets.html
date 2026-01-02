@@ -901,32 +901,32 @@
             }
 
             async function refreshData() {
-                const btn = document.querySelector('.refresh-btn');
-                const originalText = btn.innerText;
-                btn.innerText = 'Refreshing...';
-                btn.disabled = true;
+                if (window.triggerSmartRefresh) {
+                    window.triggerSmartRefresh();
+                } else {
+                    const btn = document.querySelector('.refresh-btn');
+                    const originalText = btn.innerText;
+                    btn.innerText = 'Refreshing...';
+                    btn.disabled = true;
 
-                try {
-                    const response = await fetch('/refresh', {
-                        method: 'POST'
-                    });
+                    try {
+                        const response = await fetch('/api/refresh', {
+                            method: 'POST'
+                        });
 
-                    if (response.ok) {
-                        location.reload();
-                    }
-
-                    else {
-                        alert('Failed to refresh data');
+                        if (response.ok) {
+                            location.reload();
+                        } else {
+                            alert('Failed to refresh data');
+                            btn.innerText = originalText;
+                            btn.disabled = false;
+                        }
+                    } catch (error) {
+                        console.error('Error refreshing data:', error);
+                        alert('Error refreshing data');
                         btn.innerText = originalText;
                         btn.disabled = false;
                     }
-                }
-
-                catch (error) {
-                    console.error('Error refreshing data:', error);
-                    alert('Error refreshing data');
-                    btn.innerText = originalText;
-                    btn.disabled = false;
                 }
             }
 

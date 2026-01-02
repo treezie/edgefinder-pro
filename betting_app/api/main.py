@@ -292,6 +292,17 @@ async def multibets(request: Request, legs: int = 0, db: Session = Depends(get_d
         legs: Filter by number of legs (0 = all, 2-6 = specific leg count)
     """
     try:
+        # Check if we have active predictions, if not, trigger analysis
+        active_count = db.query(Prediction).join(Fixture).filter(
+            Prediction.is_recommended == True,
+            Fixture.start_time > datetime.utcnow()
+        ).count()
+
+        if active_count == 0:
+            print("⚠ No active predictions found for multi-bets. Triggering auto-refresh...")
+            pipeline = AnalysisPipeline()
+            await pipeline.run()
+
         # Get top recommended predictions from both sports combined
         nfl_predictions = (
             db.query(Prediction)

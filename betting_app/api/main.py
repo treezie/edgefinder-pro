@@ -858,20 +858,4 @@ async def news_page(request: Request):
         "news_items": news_items
     })
 
-@app.post("/refresh")
-async def refresh_data():
-    import time
-    import asyncio
-    start = time.time()
-    try:
-        pipeline = AnalysisPipeline()
-        # 60 second overall timeout
-        await asyncio.wait_for(pipeline.run(), timeout=60.0)
-        elapsed = time.time() - start
-        return {"status": "Data refreshed", "time_seconds": round(elapsed, 1)}
-    except asyncio.TimeoutError:
-        elapsed = time.time() - start
-        return {"status": "Refresh timed out after 60 seconds", "time_seconds": round(elapsed, 1)}
-    except Exception as e:
-        elapsed = time.time() - start
-        return {"status": f"Error: {str(e)}", "time_seconds": round(elapsed, 1)}
+

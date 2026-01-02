@@ -85,7 +85,7 @@ class AnalysisPipeline:
         print(f"   Processing {len(grouped_odds)} betting opportunities for {sport}...")
 
         # Process fixtures concurrently with a semaphore
-        semaphore = asyncio.Semaphore(5)  
+        semaphore = asyncio.Semaphore(5)  # Limit to 5 concurrent games per sport to respect API limits
 
         async def process_with_semaphore(item_data):
             async with semaphore:

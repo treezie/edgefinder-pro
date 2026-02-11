@@ -132,6 +132,23 @@ def generate_sentiment_data(prediction, fixture, confidence_level: str, value_sc
                 "confidence": f"{random.randint(50, 65)}%",
                 "reasoning": "Tight matchup with several key variables. Line value exists but execution risk is notable."
             })
+    elif fixture.sport == "NRL":
+        if confidence_level == "High":
+            experts.append({
+                "name": "NRL Insider Tips",
+                "specialty": "Rugby League Analytics",
+                "sentiment": "Bullish",
+                "confidence": f"{random.randint(70, 85)}%",
+                "reasoning": "Strong form guide and key player availability. Team's forward pack dominance creates advantageous matchup."
+            })
+        else:
+            experts.append({
+                "name": "NRL Insider Tips",
+                "specialty": "Rugby League Analytics",
+                "sentiment": "Neutral",
+                "confidence": f"{random.randint(50, 65)}%",
+                "reasoning": "Evenly matched teams with form concerns. Origin period impacts and injury news are critical factors."
+            })
 
     # Expert 3: Market Movement Tracker
     if value_score > 0.10:
@@ -520,7 +537,7 @@ async def analytics(request: Request, db: Session = Depends(get_db)):
         cutoff_date = datetime.utcnow() - timedelta(days=7)
         
         fixtures = db.query(Fixture).filter(
-            Fixture.sport.in_(['NFL', 'NBA']),
+            Fixture.sport.in_(['NFL', 'NBA', 'NRL']),
             Fixture.start_time > cutoff_date
         ).order_by(Fixture.start_time).limit(15).all()
         
@@ -591,7 +608,7 @@ async def props_dashboard(request: Request, db: Session = Depends(get_db)):
     """
     try:
         fixtures = db.query(Fixture).filter(
-            Fixture.sport.in_(['NFL', 'NBA']),
+            Fixture.sport.in_(['NFL', 'NBA', 'NRL']),
             Fixture.start_time > datetime.utcnow()
         ).order_by(Fixture.start_time).limit(20).all()
         

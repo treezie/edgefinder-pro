@@ -14,3 +14,4 @@ python-dotenv
 python-dateutil
 jinja2
 feedparser
+pytz

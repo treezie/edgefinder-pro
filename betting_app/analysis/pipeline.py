@@ -7,6 +7,9 @@ from scrapers.mock_scraper import MockScraper
 from scrapers.history_fetcher import HistoricalFetcher
 from scrapers.sentiment_fetcher import SentimentFetcher
 from scrapers.expert_analysis_fetcher import ExpertAnalysisFetcher
+from scrapers.nfl_scraper import NFLScraper
+from scrapers.nrl_scraper import NRLScraper
+from scrapers.odds_api_fetcher import OddsAPIFetcher
 # Horse racing removed - not being used in the app
 from scrapers.team_stats_fetcher import TeamStatsFetcher
 from scrapers.weather_fetcher import WeatherFetcher
@@ -24,6 +27,11 @@ class AnalysisPipeline:
         self.team_stats_fetcher = TeamStatsFetcher()
         self.weather_fetcher = WeatherFetcher()
         self.player_stats_fetcher = PlayerStatsFetcher()
+        self.scrapers = {
+            "NFL": NFLScraper(),
+            "NRL": NRLScraper(),
+            "NBA": OddsAPIFetcher(sport="basketball_nba")
+        }
 
     async def run(self):
         start_time = time.time()
@@ -31,8 +39,8 @@ class AnalysisPipeline:
         print("🚀 Starting analysis pipeline (Concurrent Mode)...")
         print("="*60)
 
-        # Process both NFL and NBA concurrently
-        sports = ["NFL", "NBA"]
+        # Process NFL, NBA, and NRL concurrently
+        sports = ["NFL", "NBA", "NRL"]
         await asyncio.gather(*(self._process_sport(sport) for sport in sports))
 
         total_time = time.time() - start_time
@@ -73,7 +81,12 @@ class AnalysisPipeline:
 
         # NETWORK I/O (Async - No DB lock)
         try:
-            scraper = MockScraper(sport)
+            # Use the appropriate scraper for this sport
+            if sport in self.scrapers:
+                scraper = self.scrapers[sport]
+            else:
+                scraper = MockScraper(sport)
+            
             odds_data = await asyncio.wait_for(scraper.fetch_odds(), timeout=300.0)
             print(f"   ✅ Fetched {len(odds_data)} entries for {sport}")
         except Exception as e:

@@ -38,37 +38,85 @@ class OddsAPIFetcher:
         
         try:
             # Fetch for today and tomorrow to ensure we get upcoming games
-            # We can'teasily get a "list of all games" from the odds endpoint without specifying regions/markets first, 
-            # but the get_all_markets call requires specific teams? 
-            # Wait, the Odds API structure is: get odds for a sport, which returns a list of games with odds.
-            
-            # So we should just hit the API for the sport 'basketball_nba' to get everything.
-            
             sport_key = 'basketball_nba'
             
+            # --- FALLBACK / NO API KEY LOGIC (ESPN Public API) ---
             if not self.api_key:
-                print("Using demo mode for NBA odds listing...")
-                # In demo mode, we need a way to discover games. 
-                # We can fallback to the web scraper to find GAMES, then generate odds?
-                # Or just use web scraper entirely if enabled.
-                if self.enable_web_scraping and self.web_scraper:
-                     # Check next 3 days
-                    from datetime import datetime, timedelta
-                    
-                    # We need to find games first. PROPER IMPLEMENTATION:
-                    # 1. Use web scraper to find schedule+odds
-                    # 2. Return that directly
-                    return await self.web_scraper.get_all_markets_for_game("NBA", "", "") # Empty teams means find all? No, web scraper needs teams usually.
-                    
-                    # Actually, let's look at how pipeline uses it.
-                    # pipeline calls scraper.fetch_odds().
-                    # It expects a list of ALL odds data for that sport.
-                    
-                    # So we need to iterate through known teams? Or just find games?
-                    # Beause we don't have a schedule source in this class other than the API itself.
-                    pass
+                print("Using ESPN Public API for NBA data (No Odds API Key)...")
+                from datetime import datetime, timedelta
+                
+                # Check next 3 days
+                for i in range(3):
+                    try:
+                        check_date = (datetime.now(timezone.utc) + timedelta(days=i)).strftime('%Y%m%d')
+                        url = f"http://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates={check_date}"
+                        resp = requests.get(url, timeout=10)
+                        
+                        if resp.status_code == 200:
+                            events = resp.json().get('events', [])
+                            print(f"  Found {len(events)} NBA games for date {check_date}")
+                            
+                            for event in events:
+                                fixture_name = event.get('name', 'Unknown vs Unknown')
+                                start_time_str = event.get('date')
+                                try:
+                                    start_time = datetime.strptime(start_time_str, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+                                except:
+                                    start_time = datetime.now(timezone.utc)
+                                
+                                # Extract teams
+                                comps = event.get("competitions", [])[0].get("competitors", [])
+                                home_team = next((c['team']['displayName'] for c in comps if c['homeAway'] == 'home'), "Unknown")
+                                away_team = next((c['team']['displayName'] for c in comps if c['homeAway'] == 'away'), "Unknown")
 
-            # Real API Implementation
+                                # Extract Odds if available
+                                odds_list = event.get("competitions", [])[0].get("odds", [])
+                                home_price = None
+                                away_price = None
+                                
+                                if odds_list:
+                                    # Try to parse
+                                    provider = odds_list[0]
+                                    if "moneyline" in provider: ## Check structure
+                                        pass # TODO: Add deep parsing if needed, but often ESPN provides American odds in 'details'
+                                
+                                # Add fixture even if no odds (AnalysisPipeline will skip betting value but can still show game)
+                                # We need at least one "market" entry to register the game in our system
+                                all_odds.append({
+                                    "fixture_name": fixture_name,
+                                    "start_time": start_time,
+                                    "market_type": "h2h",
+                                    "selection": home_team,
+                                    "price": home_price, # None acceptable
+                                    "point": None,
+                                    "bookmaker": "ESPN (Public)",
+                                    "sport": "NBA",
+                                    "league": "NBA",
+                                    "home_team": home_team,
+                                    "away_team": away_team
+                                })
+                                all_odds.append({
+                                    "fixture_name": fixture_name,
+                                    "start_time": start_time,
+                                    "market_type": "h2h",
+                                    "selection": away_team,
+                                    "price": away_price,
+                                    "point": None,
+                                    "bookmaker": "ESPN (Public)",
+                                    "sport": "NBA",
+                                    "league": "NBA",
+                                    "home_team": home_team,
+                                    "away_team": away_team
+                                })
+
+                    except Exception as e:
+                        print(f"Error fetching ESPN data for date {check_date}: {e}")
+                        continue
+                        
+                return all_odds
+
+
+            # --- REAL API LOGIC ---
             url = f"{self.base_url}/{sport_key}/odds"
             params = {
                 'apiKey': self.api_key,

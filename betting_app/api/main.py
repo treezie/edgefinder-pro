@@ -222,88 +222,82 @@ async def refresh_data(background_tasks: BackgroundTasks = None):
 
 @app.get("/bets")
 async def dashboard(request: Request, sport: str = "All", bankroll: float = 1000.0, db: Session = Depends(get_db)):
-    try:
-        # Check for recent recommended predictions
+    # Check for recent recommended predictions
+    query = db.query(Prediction).join(Fixture).filter(Prediction.is_recommended == True)
+    query = query.filter(Fixture.start_time > datetime.utcnow())
+    
+    # If no data exists, trigger auto-refresh
+    if query.count() == 0:
+        print("⚠ No active predictions found. Triggering auto-refresh...")
+        pipeline = AnalysisPipeline()
+        await pipeline.run()
+        # Re-query after refresh
         query = db.query(Prediction).join(Fixture).filter(Prediction.is_recommended == True)
         query = query.filter(Fixture.start_time > datetime.utcnow())
-        
-        # If no data exists, trigger auto-refresh
-        if query.count() == 0:
-            print("⚠ No active predictions found. Triggering auto-refresh...")
-            pipeline = AnalysisPipeline()
-            await pipeline.run()
-            # Re-query after refresh
-            query = db.query(Prediction).join(Fixture).filter(Prediction.is_recommended == True)
-            query = query.filter(Fixture.start_time > datetime.utcnow())
 
-        if sport != "All":
-            query = query.filter(Fixture.sport == sport)
+    if sport != "All":
+        query = query.filter(Fixture.sport == sport)
 
-        predictions = query.all()
-        print(f"DEBUG: /bets endpoint found {len(predictions)} predictions after filtering")
-        if len(predictions) > 0:
-            print(f"DEBUG: Sample prediction: {predictions[0].selection} ({predictions[0].market_type})")
+    predictions = query.all()
+    print(f"DEBUG: /bets endpoint found {len(predictions)} predictions after filtering")
+    if len(predictions) > 0:
+        print(f"DEBUG: Sample prediction: {predictions[0].selection} ({predictions[0].market_type})")
 
-        # Get unique sports for dropdown
-        sports = db.query(Fixture.sport).distinct().all()
-        sports_list = [s[0] for s in sports]
-        if "All" not in sports_list:
-            sports_list.insert(0, "All")
+    # Get unique sports for dropdown
+    sports = db.query(Fixture.sport).distinct().all()
+    sports_list = [s[0] for s in sports]
+    if "All" not in sports_list:
+        sports_list.insert(0, "All")
 
-        # Initialize betting strategy calculator
-        from analysis.betting_strategy import BettingStrategy
-        strategy = BettingStrategy(bankroll=bankroll)
+    # Initialize betting strategy calculator
+    from analysis.betting_strategy import BettingStrategy
+    strategy = BettingStrategy(bankroll=bankroll)
 
-        # Format for display
-        display_data = []
-        for p in predictions:
-            fixture = db.query(Fixture).filter(Fixture.id == p.fixture_id).first()
-            is_simulated = fixture.sport not in ["NFL", "NBA"]  # NFL and NBA have real data (records + sentiment)
+    # Format for display
+    display_data = []
+    for p in predictions:
+        fixture = db.query(Fixture).filter(Fixture.id == p.fixture_id).first()
+        is_simulated = fixture.sport not in ["NFL", "NBA"]  # NFL and NBA have real data (records + sentiment)
 
-            # Format market and selection display
-            market_display = format_market_display(p.market_type)
+        # Format market and selection display
+        market_display = format_market_display(p.market_type)
 
-            # Get point information for spreads/totals
-            odds_with_point = db.query(Odds).filter(
-                Odds.fixture_id == p.fixture_id,
-                Odds.market_type == p.market_type,
-                Odds.selection == p.selection
-            ).first()
+        # Get point information for spreads/totals
+        odds_with_point = db.query(Odds).filter(
+            Odds.fixture_id == p.fixture_id,
+            Odds.market_type == p.market_type,
+            Odds.selection == p.selection
+        ).first()
 
-            selection_display = p.selection
-            if odds_with_point and odds_with_point.point:
-                if p.market_type == 'spreads':
-                    selection_display = f"{p.selection} ({odds_with_point.point:+.1f})"
-                elif p.market_type == 'totals':
-                    selection_display = f"{p.selection} {odds_with_point.point:.1f}"
+        selection_display = p.selection
+        if odds_with_point and odds_with_point.point:
+            if p.market_type == 'spreads':
+                selection_display = f"{p.selection} ({odds_with_point.point:+.1f})"
+            elif p.market_type == 'totals':
+                selection_display = f"{p.selection} {odds_with_point.point:.1f}"
 
-            # Generate sentiment data
-            sentiment = generate_sentiment_data(p, fixture, p.confidence_level, p.value_score)
+        # Generate sentiment data
+        sentiment = generate_sentiment_data(p, fixture, p.confidence_level, p.value_score)
 
-            display_data.append({
-                "fixture": f"{fixture.home_team} vs {fixture.away_team}" if fixture.sport != "Horse Racing" else fixture.fixture_name,
-                "sport": fixture.sport,
-                "market": market_display,
-                "selection": selection_display,
-                "value": f"{p.value_score:.2f}",
-                "confidence": p.confidence_level,
-                "reasoning": p.reasoning,
-                "start_time": format_brisbane_time(fixture.start_time),
-                "is_simulated": is_simulated,
-                "sentiment": sentiment
-            })
-
-        return templates.TemplateResponse("index.html", {
-            "request": request, 
-            "predictions": display_data,
-            "sports": sports_list,
-            "current_sport": sport
+        display_data.append({
+            "fixture": f"{fixture.home_team} vs {fixture.away_team}" if fixture.sport != "Horse Racing" else fixture.fixture_name,
+            "sport": fixture.sport,
+            "market": market_display,
+            "selection": selection_display,
+            "value": f"{p.value_score:.2f}",
+            "confidence": p.confidence_level,
+            "reasoning": p.reasoning,
+            "start_time": format_brisbane_time(fixture.start_time),
+            "is_simulated": is_simulated,
+            "sentiment": sentiment
         })
-    except Exception as e:
-        import traceback
-        error_trace = traceback.format_exc()
-        print(f"CRITICAL ERROR in /bets: {error_trace}")
-        return HTMLResponse(content=f"<h1>Internal Server Error</h1><pre>{error_trace}</pre>", status_code=500)
+
+    return templates.TemplateResponse("index.html", {
+        "request": request, 
+        "predictions": display_data,
+        "sports": sports_list,
+        "current_sport": sport
+    })
 
 @app.get("/multibets")
 async def multibets(request: Request, legs: int = 0, db: Session = Depends(get_db)):

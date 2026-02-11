@@ -70,14 +70,30 @@ class NRLScraper(BaseScraper):
                             away_record = record_summary
                     
                     # Try to find odds if available in the ESPN response
+                    # Sometimes odds are in competitions -> odds
                     odds_list = event.get("competitions", [])[0].get("odds", [])
                     home_price = None
                     away_price = None
                     
                     if odds_list:
-                        # ESPN odds structure can vary
-                        # We'll stick to None for price unless we find explicit odds
-                        pass
+                        try:
+                            # Basic parsing attempt for H2H
+                            # ESPN often stores it as "details" like "PEN -4.0" or ML if available
+                            # If direct moneyline (h2h) is available:
+                            provider = odds_list[0] # Take first provider
+                            if "moneyline" in provider:
+                                ml = provider["moneyline"]
+                                if "home" in ml: home_price = float(ml["home"]["close"]["odds"])
+                                if "away" in ml: away_price = float(ml["away"]["close"]["odds"])
+                                
+                                # Convert American to Decimal if needed (ESPN usually gives American)
+                                # Simple check: if > 50 or < -50, likely American
+                                if home_price and (home_price > 50 or home_price < -50):
+                                    home_price = (home_price/100 + 1) if home_price > 0 else (100/abs(home_price) + 1)
+                                if away_price and (away_price > 50 or away_price < -50):
+                                    away_price = (away_price/100 + 1) if away_price > 0 else (100/abs(away_price) + 1)
+                        except:
+                            pass
 
                     common_data = {
                         "fixture_name": fixture_name,
@@ -91,6 +107,8 @@ class NRLScraper(BaseScraper):
                         "headlines": headlines
                     }
 
+                    # Only add if we successfully parsed data, or at least have a valid fixture
+                    # We accept None price as "market not open"
                     fixtures.append({
                         **common_data,
                         "selection": home_team,

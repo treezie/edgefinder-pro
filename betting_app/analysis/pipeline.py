@@ -30,7 +30,7 @@ class AnalysisPipeline:
         self.scrapers = {
             "NFL": NFLScraper(),
             "NRL": NRLScraper(),
-            "NBA": OddsAPIFetcher(sport="basketball_nba")
+            "NBA": OddsAPIFetcher(api_key=None) # API key effectively loaded from env variables inside class or handled
         }
 
     async def run(self):

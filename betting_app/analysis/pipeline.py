@@ -248,7 +248,7 @@ class AnalysisPipeline:
                 if true_prob > 0.65: confidence = "High"
                 elif true_prob > 0.50: confidence = "Medium"
 
-            is_adj_rec = (value > 0.03 if best_price else true_prob > 0.55)
+            is_adj_rec = (value > 0.03 if best_price else true_prob > 0.50)
 
             # --- PHASE 3: DATABASE WRITES (Blocking, but grouped and fast) ---
             # Now we open the session, do all writes, and close immediately.

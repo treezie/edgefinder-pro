@@ -185,8 +185,9 @@ class AnalysisPipeline:
             expert_adj = (expert_analysis["confidence_score"] / 100) * 0.15
             
             home_adj = 0
-            if is_home and expert_analysis["h2h_analysis"]["home_field_advantage"] > 50:
-                home_adj = (expert_analysis["h2h_analysis"]["home_field_advantage"] - 50) / 1000
+            hfa = expert_analysis["h2h_analysis"].get("home_field_advantage")
+            if is_home and hfa is not None and hfa > 50:
+                home_adj = (hfa - 50) / 1000
 
             true_prob = base_prob + sentiment_adj + expert_adj + home_adj
             true_prob = max(0.01, min(0.99, true_prob))

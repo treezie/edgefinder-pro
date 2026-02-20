@@ -244,33 +244,13 @@ class OddsAPIFetcher:
         Returns list of {bookmaker: str, odds: float}
         """
         if not self.api_key:
-            # Demo mode: Return simulated odds from multiple bookmakers
-            base_odds = self._generate_realistic_odds(team_name)
+            return []
 
-            # Simulate variance between bookmakers (typically 2-8% difference)
-            import random
-            bookmakers = ['SportsBet', 'TAB', 'Bet365', 'Pinnacle']
-            result = []
-
-            for bookie in bookmakers:
-                # Each bookmaker has slightly different odds
-                variance = random.uniform(-0.08, 0.08)
-                odds = round(base_odds * (1 + variance), 2)
-                # Ensure odds stay in realistic range
-                odds = max(1.01, min(odds, 10.0))
-                result.append({
-                    'bookmaker': bookie,
-                    'odds': odds
-                })
-
-            return result
-
-        # Real API mode: Fetch from multiple bookmakers
         try:
             sport_key = self._get_sport_key(sport)
             if not sport_key:
-                print(f"Warning: Sport '{sport}' not supported by The Odds API, falling back to demo mode")
-                return await self._demo_mode_fallback(team_name)
+                print(f"⚠ Sport '{sport}' not supported by The Odds API")
+                return []
 
             url = f"{self.base_url}/{sport_key}/odds"
             params = {
@@ -316,100 +296,24 @@ class OddsAPIFetcher:
                     print(f"✓ Fetched {len(result)} real odds for {team_name}")
                     return result
                 else:
-                    print(f"No odds found for {team_name}, using demo mode")
-                    return await self._demo_mode_fallback(team_name)
+                    print(f"No odds found for {team_name}")
+                    return []
 
             elif response.status_code == 401:
                 print(f"❌ API Authentication failed - check your API key")
-                return await self._demo_mode_fallback(team_name)
+                return []
             elif response.status_code == 429:
-                print(f"⚠ API rate limit exceeded - falling back to demo mode")
-                return await self._demo_mode_fallback(team_name)
+                print(f"⚠ API rate limit exceeded")
+                return []
             else:
-                print(f"API returned status {response.status_code}, using demo mode")
-                return await self._demo_mode_fallback(team_name)
+                print(f"API returned status {response.status_code}")
+                return []
 
         except Exception as e:
-            print(f"Error fetching odds from API: {e}, falling back to demo mode")
-            return await self._demo_mode_fallback(team_name)
+            print(f"Error fetching odds from API: {e}")
+            return []
 
 
-
-    def _generate_fallback_odds(self, sport: str, home_team: str, away_team: str) -> List[Dict[str, Any]]:
-        """
-        Generates realistic simulated odds when all data sources fail.
-        This ensures the UI is never empty, even if the data is simulated.
-        """
-        import random
-        
-        # Determine favorite
-        is_home_fav = random.random() > 0.5
-        
-        # Generate H2H (Moneyline)
-        if is_home_fav:
-            home_price = round(random.uniform(1.30, 1.80), 2)
-            away_price = round(random.uniform(2.10, 3.20), 2)
-            spread = -1 * round(random.uniform(2.5, 7.5), 1)
-        else:
-            home_price = round(random.uniform(2.10, 3.20), 2)
-            away_price = round(random.uniform(1.30, 1.80), 2)
-            spread = round(random.uniform(2.5, 7.5), 1)
-            
-        # Generate Total
-        if sport == 'NBA':
-            total = round(random.uniform(210.5, 235.5), 1)
-        elif sport == 'NFL':
-            total = round(random.uniform(40.5, 54.5), 1)
-        else:
-            total = 0
-            
-        bookmakers = ['SportsBet', 'TAB', 'Bet365']
-        bookie = random.choice(bookmakers)
-        
-        return [
-            {
-                'bookmaker': bookie,
-                'market_type': 'h2h',
-                'selection': home_team,
-                'price': home_price,
-                'point': None
-            },
-            {
-                'bookmaker': bookie,
-                'market_type': 'h2h',
-                'selection': away_team,
-                'price': away_price,
-                'point': None
-            },
-            {
-                'bookmaker': bookie,
-                'market_type': 'spreads',
-                'selection': home_team,
-                'price': 1.90,
-                'point': spread
-            },
-            {
-                'bookmaker': bookie,
-                'market_type': 'spreads',
-                'selection': away_team,
-                'price': 1.90,
-                'point': -spread
-            },
-            {
-                'bookmaker': bookie,
-                'market_type': 'totals',
-                'selection': 'Over',
-                'price': 1.90,
-                'point': total
-            },
-             {
-                'bookmaker': bookie,
-                'market_type': 'totals',
-                'selection': 'Under',
-                'price': 1.90,
-                'point': total
-            }
-        ]
 
     async def get_all_markets_for_game(self, sport: str, home_team: str, away_team: str) -> List[Dict[str, Any]]:
         """
@@ -420,15 +324,15 @@ class OddsAPIFetcher:
         1. Try The Odds API first (if API key available and quota not exhausted)
         2. If API fails with 401/429 -> Fall back to web scraping
         3. If no API key -> Use web scraping only
-        4. If both fail -> Use robust fallback simulation
+        4. If all fail -> Return empty list (no simulated data)
         """
         # If quota is exhausted, skip API and go straight to web scraping
         if self.quota_exhausted and self.enable_web_scraping and self.web_scraper:
             print(f"⚠ API quota exhausted - using web scraping for {home_team} vs {away_team}")
             result = await self.web_scraper.get_all_markets_for_game(sport, home_team, away_team)
             if result: return result
-            print(f"⚠ Web scraping failed - using simulated fallback for {home_team} vs {away_team}")
-            return self._generate_fallback_odds(sport, home_team, away_team)
+            print(f"⚠ Web scraping also failed for {home_team} vs {away_team}")
+            return []
 
         if not self.api_key:
             if self.enable_web_scraping and self.web_scraper:
@@ -436,10 +340,8 @@ class OddsAPIFetcher:
                 result = await self.web_scraper.get_all_markets_for_game(sport, home_team, away_team)
                 if result: return result
             
-            # Fallback if both fail
-            print(f"⚠ No API key and web scraping failed - Returning empty (No Simulation)")
-            return []  # User requested NO simulation
-            # return self._generate_fallback_odds(sport, home_team, away_team)
+            print(f"⚠ No API key and web scraping failed for {home_team} vs {away_team}")
+            return []
 
 
         # Try The Odds API first
@@ -549,7 +451,7 @@ class OddsAPIFetcher:
                 print(f"   ↳ Falling back to web scraping...")
                 result = await self.web_scraper.get_all_markets_for_game(sport, home_team, away_team)
                 if result: return result
-            
-            print(f"⚠ All methods failed - using simulated fallback for {home_team} vs {away_team}")
-            return self._generate_fallback_odds(sport, home_team, away_team)
+
+            print(f"⚠ All methods failed for {home_team} vs {away_team}")
+            return []
 

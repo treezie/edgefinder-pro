@@ -83,22 +83,29 @@ def format_market_display(market_type: str) -> str:
     return market_names.get(market_type, market_type.title())
 
 def generate_sentiment_data(prediction, fixture, confidence_level: str, value_score: float):
-    """Generate expert sentiment data for betting analysis"""
-    import random
-
-    # Base sentiment on confidence and value
+    """
+    Generate expert sentiment data for betting analysis.
+    All values are deterministically derived from confidence_level and value_score.
+    """
+    # Deterministic bullish percentage based on confidence and value
     if confidence_level == "High" and value_score > 0.15:
-        bullish = random.randint(75, 90)
+        bullish = 82
     elif confidence_level == "High":
-        bullish = random.randint(65, 80)
+        bullish = 72
+    elif confidence_level == "Medium" and value_score > 0.10:
+        bullish = 65
     elif confidence_level == "Medium":
-        bullish = random.randint(50, 70)
+        bullish = 58
     else:
-        bullish = random.randint(35, 55)
+        bullish = 45
 
     bearish = 100 - bullish
 
-    # Generate expert opinions
+    # Deterministic expert confidence derived from value_score
+    stats_confidence = min(90, max(40, int(value_score * 500) + 50))
+    sport_confidence = min(85, max(50, int(value_score * 400) + 55)) if confidence_level == "High" else min(65, max(45, int(value_score * 300) + 45))
+    market_confidence = min(80, max(40, int(value_score * 450) + 45))
+
     experts = []
 
     # Expert 1: Statistical Analyst
@@ -107,7 +114,7 @@ def generate_sentiment_data(prediction, fixture, confidence_level: str, value_sc
             "name": "StatsPro Analytics",
             "specialty": "Statistical Modeling",
             "sentiment": "Bullish" if bullish > 60 else "Neutral",
-            "confidence": f"{bullish}%",
+            "confidence": f"{stats_confidence}%",
             "reasoning": f"Model shows {value_score:.1%} edge vs market. Strong value opportunity based on historical trends."
         })
     else:
@@ -115,62 +122,34 @@ def generate_sentiment_data(prediction, fixture, confidence_level: str, value_sc
             "name": "StatsPro Analytics",
             "specialty": "Statistical Modeling",
             "sentiment": "Neutral" if bullish > 50 else "Bearish",
-            "confidence": f"{bullish}%",
+            "confidence": f"{stats_confidence}%",
             "reasoning": f"Market fairly priced. Edge of {value_score:.1%} suggests limited value in this spot."
         })
 
     # Expert 2: Sports Analyst
-    if fixture.sport == "NBA":
-        if confidence_level == "High":
-            experts.append({
-                "name": "NBA Insider Network",
-                "specialty": "Basketball Analytics",
-                "sentiment": "Bullish",
-                "confidence": f"{random.randint(70, 85)}%",
-                "reasoning": "Strong matchup advantages in pace, efficiency, and recent form. Team trends align with this outcome."
-            })
-        else:
-            experts.append({
-                "name": "NBA Insider Network",
-                "specialty": "Basketball Analytics",
-                "sentiment": "Neutral",
-                "confidence": f"{random.randint(50, 65)}%",
-                "reasoning": "Competitive matchup with balanced strengths. Key player availability and recent form are critical factors."
-            })
-    elif fixture.sport == "NFL":
-        if confidence_level == "High":
-            experts.append({
-                "name": "NFL Pro Picks",
-                "specialty": "Football Strategy",
-                "sentiment": "Bullish",
-                "confidence": f"{random.randint(70, 85)}%",
-                "reasoning": "Favorable situational spot with line movement indicating sharp money. Weather and injury report support this side."
-            })
-        else:
-            experts.append({
-                "name": "NFL Pro Picks",
-                "specialty": "Football Strategy",
-                "sentiment": "Neutral",
-                "confidence": f"{random.randint(50, 65)}%",
-                "reasoning": "Tight matchup with several key variables. Line value exists but execution risk is notable."
-            })
-    elif fixture.sport == "NRL":
-        if confidence_level == "High":
-            experts.append({
-                "name": "NRL Insider Tips",
-                "specialty": "Rugby League Analytics",
-                "sentiment": "Bullish",
-                "confidence": f"{random.randint(70, 85)}%",
-                "reasoning": "Strong form guide and key player availability. Team's forward pack dominance creates advantageous matchup."
-            })
-        else:
-            experts.append({
-                "name": "NRL Insider Tips",
-                "specialty": "Rugby League Analytics",
-                "sentiment": "Neutral",
-                "confidence": f"{random.randint(50, 65)}%",
-                "reasoning": "Evenly matched teams with form concerns. Origin period impacts and injury news are critical factors."
-            })
+    sport_analysts = {
+        "NBA": ("NBA Insider Network", "Basketball Analytics"),
+        "NFL": ("NFL Pro Picks", "Football Strategy"),
+        "NRL": ("NRL Insider Tips", "Rugby League Analytics"),
+    }
+    analyst_name, analyst_specialty = sport_analysts.get(fixture.sport, ("Sports Analyst", "General"))
+
+    if confidence_level == "High":
+        experts.append({
+            "name": analyst_name,
+            "specialty": analyst_specialty,
+            "sentiment": "Bullish",
+            "confidence": f"{sport_confidence}%",
+            "reasoning": "Strong matchup advantages and recent form align with this outcome."
+        })
+    else:
+        experts.append({
+            "name": analyst_name,
+            "specialty": analyst_specialty,
+            "sentiment": "Neutral",
+            "confidence": f"{sport_confidence}%",
+            "reasoning": "Competitive matchup with balanced strengths. Key player availability is a critical factor."
+        })
 
     # Expert 3: Market Movement Tracker
     if value_score > 0.10:
@@ -178,22 +157,21 @@ def generate_sentiment_data(prediction, fixture, confidence_level: str, value_sc
             "name": "SharpMoney Tracker",
             "specialty": "Line Movement",
             "sentiment": "Bullish",
-            "confidence": f"{random.randint(65, 80)}%",
-            "reasoning": f"Line movement favors this position. Public fading creates value - {value_score:.1%} edge identified."
+            "confidence": f"{market_confidence}%",
+            "reasoning": f"Line movement favors this position. {value_score:.1%} edge identified."
         })
     else:
         experts.append({
             "name": "SharpMoney Tracker",
             "specialty": "Line Movement",
             "sentiment": "Neutral" if value_score > 0.05 else "Bearish",
-            "confidence": f"{random.randint(45, 60)}%",
+            "confidence": f"{market_confidence}%",
             "reasoning": "Line is efficient. Limited movement suggests consensus pricing with minimal edge."
         })
 
     # Calculate consensus
     bullish_count = sum(1 for e in experts if e["sentiment"] == "Bullish")
     neutral_count = sum(1 for e in experts if e["sentiment"] == "Neutral")
-    bearish_count = sum(1 for e in experts if e["sentiment"] == "Bearish")
 
     if bullish_count >= 2:
         consensus = "Strong Buy"

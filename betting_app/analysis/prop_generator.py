@@ -71,6 +71,8 @@ class PropGenerator:
             self._generate_nba_markets(stats_summary, stats_str, generated_props, game_log=game_log)
         elif sport == "NFL":
             self._generate_nfl_markets(stats_summary, position, generated_props)
+        elif sport == "NRL":
+            self._generate_nrl_markets(stats_summary, stats_str, generated_props)
 
         # No fallback — if no real stats, return None
         return generated_props if generated_props["markets"] else None
@@ -112,6 +114,55 @@ class PropGenerator:
         if apg_match:
             avg = float(apg_match.group(1))
             self._add_market(props, "Assists", avg, game_log=game_log, log_key="ast")
+
+    def _generate_nrl_markets(self, stats_data: Any, stats_str: str, props: Dict):
+        """Parse NRL stats and generate try scorer, tackle breaks, run metres markets."""
+        if isinstance(stats_data, dict):
+            # NRL dict stats keys: TRIES, TRY_ASSISTS, TACKLES, TACKLE_BREAKS, RUN_METRES, etc.
+            tries = self._parse_stat_value(stats_data, ["TRIES", "T", "tries"])
+            try_assists = self._parse_stat_value(stats_data, ["TRY_ASSISTS", "TA", "tryAssists"])
+            tackle_breaks = self._parse_stat_value(stats_data, ["TACKLE_BREAKS", "TB", "tackleBreaks"])
+            run_metres = self._parse_stat_value(stats_data, ["RUN_METRES", "RM", "runMetres", "ALL_RUN_METRES"])
+            tackles = self._parse_stat_value(stats_data, ["TACKLES", "TK", "tackles"])
+
+            # Get games played for per-game averages
+            gp = self._parse_stat_value(stats_data, ["GP", "games_played", "GAMES"])
+            if gp and gp > 1:
+                if tries is not None:
+                    tries = tries / gp
+                if try_assists is not None:
+                    try_assists = try_assists / gp
+                if tackle_breaks is not None:
+                    tackle_breaks = tackle_breaks / gp
+                if run_metres is not None:
+                    run_metres = run_metres / gp
+                if tackles is not None:
+                    tackles = tackles / gp
+
+            if tries is not None and tries > 0:
+                self._add_market(props, "Try Scorer", tries)
+            if tackle_breaks is not None and tackle_breaks > 0:
+                self._add_market(props, "Tackle Breaks", tackle_breaks)
+            if run_metres is not None and run_metres > 0:
+                self._add_market(props, "Run Metres", run_metres, is_yards=True)
+            if tackles is not None and tackles > 0:
+                self._add_market(props, "Tackles", tackles)
+
+            if props["markets"]:
+                return
+
+        # Fallback: try string parsing
+        tries_match = re.search(r'([\d\.]+)\s*(?:tries|T)\b', stats_str, re.IGNORECASE)
+        if tries_match:
+            self._add_market(props, "Try Scorer", float(tries_match.group(1)))
+
+        metres_match = re.search(r'([\d\.]+)\s*(?:metres|m|run metres)\b', stats_str, re.IGNORECASE)
+        if metres_match:
+            self._add_market(props, "Run Metres", float(metres_match.group(1)), is_yards=True)
+
+        tb_match = re.search(r'([\d\.]+)\s*(?:tackle breaks|TB)\b', stats_str, re.IGNORECASE)
+        if tb_match:
+            self._add_market(props, "Tackle Breaks", float(tb_match.group(1)))
 
     def _parse_stat_value(self, stats_dict: Dict, keys: List[str]) -> float:
         """Try to parse a numeric stat value from a dict using multiple possible keys."""

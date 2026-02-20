@@ -313,7 +313,7 @@ async def dashboard(request: Request, sport: str = "All", bankroll: float = 1000
             fixture = db.query(Fixture).filter(Fixture.id == p.fixture_id).first()
             if not fixture:
                 continue
-            is_simulated = fixture.sport not in ["NFL", "NBA"]
+            is_simulated = fixture.sport not in ["NFL", "NBA", "NRL"]
 
             market_display = format_market_display(p.market_type)
 
@@ -406,8 +406,19 @@ async def multibets(request: Request, legs: int = 0, db: Session = Depends(get_d
             .limit(10)
             .all()
         )
-        
-        all_predictions = nfl_predictions + nba_predictions
+
+        nrl_predictions = (
+            db.query(Prediction)
+            .join(Fixture)
+            .filter(Prediction.is_recommended == True, Prediction.value_score > 0.03)
+            .filter(Fixture.start_time > datetime.utcnow())
+            .filter(Fixture.sport == 'NRL')
+            .order_by(Prediction.value_score.desc())
+            .limit(10)
+            .all()
+        )
+
+        all_predictions = nfl_predictions + nba_predictions + nrl_predictions
 
         # Helper function to create a leg dictionary
         def create_leg(pred):
@@ -716,8 +727,10 @@ async def get_props(fixture_id: str, db: Session = Depends(get_db)):
         )
 
         # Fetch game logs for all players (for last 5 games + vs opponent insights)
-        sport_key = "basketball" if fixture.sport == "NBA" else "football"
-        league_key = "nba" if fixture.sport == "NBA" else "nfl"
+        sport_key_map = {"NBA": "basketball", "NFL": "football", "NRL": "rugby-league"}
+        league_key_map = {"NBA": "nba", "NFL": "nfl", "NRL": "nrl"}
+        sport_key = sport_key_map.get(fixture.sport, "football")
+        league_key = league_key_map.get(fixture.sport, "nfl")
 
         async def fetch_game_log(player, opponent_team):
             pid = player.get("id")
@@ -905,6 +918,7 @@ async def news_page(request: Request):
     feeds = [
         {"sport": "NFL", "url": "https://www.espn.com/espn/rss/nfl/news"},
         {"sport": "NBA", "url": "https://www.espn.com/espn/rss/nba/news"},
+        {"sport": "NRL", "url": "https://www.zerotackle.com/feed/"},
         {"sport": "NRL", "url": "https://www.espn.com/espn/rss/rugby/news"}
     ]
     

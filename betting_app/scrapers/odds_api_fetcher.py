@@ -232,6 +232,7 @@ class OddsAPIFetcher:
         sport_map = {
             'NFL': 'americanfootball_nfl',
             'NBA': 'basketball_nba',
+            'NRL': 'rugbyleague_nrl',
             'MLB': 'baseball_mlb',
             'NHL': 'icehockey_nhl'
         }

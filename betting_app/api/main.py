@@ -242,6 +242,69 @@ async def refresh_status():
     """Check if a background refresh is currently running."""
     return {"refreshing": _refresh_in_progress}
 
+@app.get("/api/debug")
+async def debug_info(db: Session = Depends(get_db)):
+    """Diagnostic endpoint to see what's happening on Render."""
+    import traceback
+    info = {}
+    try:
+        info["odds_api_key_set"] = bool(os.getenv("ODDS_API_KEY"))
+        info["odds_api_key_prefix"] = os.getenv("ODDS_API_KEY", "")[:8] if os.getenv("ODDS_API_KEY") else None
+        info["database_url_type"] = os.getenv("DATABASE_URL", "sqlite (default)")[:20]
+        info["refresh_in_progress"] = _refresh_in_progress
+        info["utc_now"] = str(datetime.utcnow())
+
+        total_fixtures = db.query(Fixture).count()
+        total_predictions = db.query(Prediction).count()
+        upcoming_fixtures = db.query(Fixture).filter(Fixture.start_time > datetime.utcnow()).count()
+        upcoming_recommended = db.query(Prediction).join(Fixture).filter(
+            Prediction.is_recommended == True,
+            Fixture.start_time > datetime.utcnow()
+        ).count()
+
+        info["total_fixtures"] = total_fixtures
+        info["total_predictions"] = total_predictions
+        info["upcoming_fixtures"] = upcoming_fixtures
+        info["upcoming_recommended"] = upcoming_recommended
+
+        # Show recent fixtures
+        recent = db.query(Fixture).order_by(Fixture.id.desc()).limit(3).all()
+        info["latest_fixtures"] = [
+            {"id": f.id, "sport": f.sport, "name": f.fixture_name, "start": str(f.start_time)}
+            for f in recent
+        ]
+
+        # Try a quick NBA odds fetch to test API
+        try:
+            from scrapers.odds_api_fetcher import OddsAPIFetcher
+            fetcher = OddsAPIFetcher(api_key=os.getenv("ODDS_API_KEY"))
+            info["fetcher_api_key_set"] = bool(fetcher.api_key)
+        except Exception as e:
+            info["fetcher_error"] = str(e)
+
+    except Exception as e:
+        info["error"] = str(e)
+        info["traceback"] = traceback.format_exc()
+
+    return info
+
+@app.get("/api/refresh/nba")
+async def refresh_nba_only():
+    """Run NBA pipeline only - faster, for debugging on Render."""
+    global _refresh_in_progress
+    if _refresh_in_progress:
+        return {"status": "in_progress"}
+    _refresh_in_progress = True
+    try:
+        pipeline = AnalysisPipeline()
+        await pipeline._process_sport("NBA")
+        return {"status": "success", "message": "NBA refresh complete"}
+    except Exception as e:
+        import traceback
+        return {"status": "error", "error": str(e), "traceback": traceback.format_exc()}
+    finally:
+        _refresh_in_progress = False
+
 @app.get("/bets")
 async def dashboard(request: Request, sport: str = "All", bankroll: float = 1000.0, db: Session = Depends(get_db)):
     try:

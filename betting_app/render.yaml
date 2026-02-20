@@ -11,6 +11,8 @@ services:
           property: connectionString
       - key: PYTHON_VERSION
         value: 3.9.0
+      - key: ODDS_API_KEY
+        sync: false  # Must be set manually in Render dashboard
 
 databases:
   - name: edgefinder-db

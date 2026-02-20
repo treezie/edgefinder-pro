@@ -14,13 +14,13 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 class MockScraper(BaseScraper):
     def __init__(self, sport: str):
         super().__init__(sport)
-        # Load API key from environment variable
-        # api_key = os.getenv('ODDS_API_KEY')
-        # PER USER REQUEST: Force Disable Odds API -> Web Scraping Only
-        api_key = None
+        api_key = os.getenv('ODDS_API_KEY')
         self.odds_fetcher = OddsAPIFetcher(api_key=api_key)
-        
-        print("✓ Odds API Disabled - Using Web Scraping defaults")
+
+        if api_key:
+            print(f"✓ Odds API Key loaded for {sport}")
+        else:
+            print(f"⚠ No Odds API Key - will use ESPN fallback for {sport}")
 
     async def fetch_odds(self) -> List[Dict[str, Any]]:
         """

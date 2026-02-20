@@ -1,5 +1,7 @@
 import asyncio
+import os
 import time
+from dotenv import load_dotenv
 from sqlalchemy.orm import Session
 from database.db import SessionLocal, engine, Base
 from database.models import Fixture, Odds, Sentiment, Prediction
@@ -14,6 +16,8 @@ from scrapers.odds_api_fetcher import OddsAPIFetcher
 from scrapers.team_stats_fetcher import TeamStatsFetcher
 from scrapers.weather_fetcher import WeatherFetcher
 from scrapers.player_stats_fetcher import PlayerStatsFetcher
+
+load_dotenv()
 
 class AnalysisPipeline:
     def __init__(self):
@@ -30,7 +34,7 @@ class AnalysisPipeline:
         self.scrapers = {
             "NFL": NFLScraper(),
             "NRL": NRLScraper(),
-            "NBA": OddsAPIFetcher(api_key=None) # API key effectively loaded from env variables inside class or handled
+            "NBA": OddsAPIFetcher(api_key=os.getenv('ODDS_API_KEY'))
         }
 
     async def run(self):

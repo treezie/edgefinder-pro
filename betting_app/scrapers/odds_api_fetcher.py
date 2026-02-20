@@ -1,4 +1,5 @@
 import asyncio
+import os
 import requests
 from typing import Dict, List, Any, Optional
 from datetime import datetime, timezone
@@ -17,7 +18,7 @@ class OddsAPIFetcher:
     """
 
     def __init__(self, api_key: Optional[str] = None, enable_web_scraping: bool = True):
-        self.api_key = api_key
+        self.api_key = api_key or os.getenv('ODDS_API_KEY')
         self.base_url = "https://api.the-odds-api.com/v4/sports"
         self.enable_web_scraping = enable_web_scraping
         self.quota_exhausted = False  # Track if API quota is exhausted
@@ -73,12 +74,25 @@ class OddsAPIFetcher:
                                 odds_list = event.get("competitions", [])[0].get("odds", [])
                                 home_price = None
                                 away_price = None
-                                
+
                                 if odds_list:
-                                    # Try to parse
                                     provider = odds_list[0]
-                                    if "moneyline" in provider: ## Check structure
-                                        pass # TODO: Add deep parsing if needed, but often ESPN provides American odds in 'details'
+                                    # ESPN provides American odds in various fields
+                                    # Try homeTeamOdds/awayTeamOdds first (structured data)
+                                    home_odds_data = provider.get("homeTeamOdds", {})
+                                    away_odds_data = provider.get("awayTeamOdds", {})
+
+                                    # Try to get decimal odds directly, or convert from American
+                                    if home_odds_data.get("moneyLine"):
+                                        home_price = self._american_to_decimal(home_odds_data["moneyLine"])
+                                    if away_odds_data.get("moneyLine"):
+                                        away_price = self._american_to_decimal(away_odds_data["moneyLine"])
+
+                                    # Fallback: parse from 'details' string (e.g. "HOU -3.5")
+                                    if not home_price and not away_price:
+                                        details = provider.get("details", "")
+                                        spread_odds = provider.get("overUnder")
+                                        # If we still can't get moneyline, leave as None
                                 
                                 # Add fixture even if no odds (AnalysisPipeline will skip betting value but can still show game)
                                 # We need at least one "market" entry to register the game in our system
@@ -200,6 +214,19 @@ class OddsAPIFetcher:
         """
         print(f"⚠ get_odds_for_team is deprecated")
         return None
+
+    @staticmethod
+    def _american_to_decimal(american_odds) -> Optional[float]:
+        """Convert American odds to decimal odds."""
+        try:
+            odds = float(american_odds)
+            if odds > 0:
+                return round(1 + (odds / 100), 2)
+            elif odds < 0:
+                return round(1 + (100 / abs(odds)), 2)
+            return None
+        except (ValueError, TypeError, ZeroDivisionError):
+            return None
 
     def _get_sport_key(self, sport: str) -> Optional[str]:
         """Maps our sport names to The Odds API sport keys."""

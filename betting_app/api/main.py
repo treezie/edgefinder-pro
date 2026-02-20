@@ -2,6 +2,7 @@ from fastapi import FastAPI, Request, HTTPException, Query, Depends, BackgroundT
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+import asyncio
 import uvicorn
 import os
 import json
@@ -21,6 +22,10 @@ from analysis.pipeline import AnalysisPipeline
 load_dotenv()
 
 app = FastAPI(title="Betting Suggestion App")
+
+# Background refresh state - prevents blocking requests and duplicate runs
+_refresh_lock = asyncio.Lock()
+_refresh_in_progress = False
 
 app.mount("/static", StaticFiles(directory="api/static"), name="static")
 templates = Jinja2Templates(directory="api/templates")
@@ -42,6 +47,31 @@ injury_fetcher = InjuryFetcher()
 Base.metadata.create_all(bind=engine)
 
 prop_generator = PropGenerator()
+
+
+@app.on_event("startup")
+async def startup_refresh():
+    """Kick off a pipeline refresh when the server starts so data is ready for users."""
+    asyncio.create_task(_run_pipeline_background())
+
+
+async def _run_pipeline_background():
+    """Run the analysis pipeline in the background without blocking requests."""
+    global _refresh_in_progress
+    async with _refresh_lock:
+        if _refresh_in_progress:
+            return  # Already running, skip
+        _refresh_in_progress = True
+    try:
+        print("🔄 Background pipeline refresh started...")
+        pipeline = AnalysisPipeline()
+        await pipeline.run()
+        print("✅ Background pipeline refresh complete.")
+    except Exception as e:
+        print(f"❌ Background pipeline refresh failed: {e}")
+    finally:
+        _refresh_in_progress = False
+
 
 def format_brisbane_time(utc_datetime):
     """Convert UTC datetime to Brisbane time and format it"""
@@ -206,34 +236,30 @@ async def landing_v2(request: Request):
     return templates.TemplateResponse("landing_v2.html", {"request": request})
 
 @app.post("/api/refresh")
-async def refresh_data(background_tasks: BackgroundTasks = None):
+async def refresh_data():
     """
-    Trigger manual refresh of betting data.
+    Trigger manual refresh of betting data (runs in background).
     """
-    try:
-        pipeline = AnalysisPipeline()
-        # Run synchronously for now to ensure user gets data immediately upon refresh
-        # In production, this might be backgrounded, but user wants immediate results.
-        await pipeline.run()
-        return {"status": "success", "message": "Data refreshed successfully"}
-    except Exception as e:
-        print(f"Error refreshing data: {e}")
-        return JSONResponse(status_code=500, content={"error": str(e)})
+    if _refresh_in_progress:
+        return {"status": "in_progress", "message": "Data refresh already running. Check back shortly."}
+    asyncio.create_task(_run_pipeline_background())
+    return {"status": "started", "message": "Data refresh started in background. Reload in ~60 seconds."}
+
+@app.get("/api/refresh/status")
+async def refresh_status():
+    """Check if a background refresh is currently running."""
+    return {"refreshing": _refresh_in_progress}
 
 @app.get("/bets")
 async def dashboard(request: Request, sport: str = "All", bankroll: float = 1000.0, db: Session = Depends(get_db)):
     # Check for recent recommended predictions
     query = db.query(Prediction).join(Fixture).filter(Prediction.is_recommended == True)
     query = query.filter(Fixture.start_time > datetime.utcnow())
-    
-    # If no data exists, trigger auto-refresh
-    if query.count() == 0:
-        print("⚠ No active predictions found. Triggering auto-refresh...")
-        pipeline = AnalysisPipeline()
-        await pipeline.run()
-        # Re-query after refresh
-        query = db.query(Prediction).join(Fixture).filter(Prediction.is_recommended == True)
-        query = query.filter(Fixture.start_time > datetime.utcnow())
+
+    # If no data exists, trigger background refresh (non-blocking)
+    if query.count() == 0 and not _refresh_in_progress:
+        print("⚠ No active predictions found. Triggering background refresh...")
+        asyncio.create_task(_run_pipeline_background())
 
     if sport != "All":
         query = query.filter(Fixture.sport == sport)
@@ -315,10 +341,9 @@ async def multibets(request: Request, legs: int = 0, db: Session = Depends(get_d
             Fixture.start_time > datetime.utcnow()
         ).count()
 
-        if active_count == 0:
-            print("⚠ No active predictions found for multi-bets. Triggering auto-refresh...")
-            pipeline = AnalysisPipeline()
-            await pipeline.run()
+        if active_count == 0 and not _refresh_in_progress:
+            print("⚠ No active predictions found for multi-bets. Triggering background refresh...")
+            asyncio.create_task(_run_pipeline_background())
 
         # Get top recommended predictions from both sports combined
         nfl_predictions = (

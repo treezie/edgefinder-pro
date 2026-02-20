@@ -24,7 +24,6 @@ load_dotenv()
 app = FastAPI(title="Betting Suggestion App")
 
 # Background refresh state - prevents blocking requests and duplicate runs
-_refresh_lock = asyncio.Lock()
 _refresh_in_progress = False
 
 app.mount("/static", StaticFiles(directory="api/static"), name="static")
@@ -49,19 +48,12 @@ Base.metadata.create_all(bind=engine)
 prop_generator = PropGenerator()
 
 
-@app.on_event("startup")
-async def startup_refresh():
-    """Kick off a pipeline refresh when the server starts so data is ready for users."""
-    asyncio.create_task(_run_pipeline_background())
-
-
 async def _run_pipeline_background():
     """Run the analysis pipeline in the background without blocking requests."""
     global _refresh_in_progress
-    async with _refresh_lock:
-        if _refresh_in_progress:
-            return  # Already running, skip
-        _refresh_in_progress = True
+    if _refresh_in_progress:
+        return  # Already running, skip
+    _refresh_in_progress = True
     try:
         print("🔄 Background pipeline refresh started...")
         pipeline = AnalysisPipeline()
@@ -252,78 +244,84 @@ async def refresh_status():
 
 @app.get("/bets")
 async def dashboard(request: Request, sport: str = "All", bankroll: float = 1000.0, db: Session = Depends(get_db)):
-    # Check for recent recommended predictions
-    query = db.query(Prediction).join(Fixture).filter(Prediction.is_recommended == True)
-    query = query.filter(Fixture.start_time > datetime.utcnow())
+    try:
+        # Check for recent recommended predictions
+        query = db.query(Prediction).join(Fixture).filter(Prediction.is_recommended == True)
+        query = query.filter(Fixture.start_time > datetime.utcnow())
 
-    # If no data exists, trigger background refresh (non-blocking)
-    if query.count() == 0 and not _refresh_in_progress:
-        print("⚠ No active predictions found. Triggering background refresh...")
-        asyncio.create_task(_run_pipeline_background())
+        # If no data exists, trigger background refresh (non-blocking)
+        if query.count() == 0 and not _refresh_in_progress:
+            print("⚠ No active predictions found. Triggering background refresh...")
+            asyncio.create_task(_run_pipeline_background())
 
-    if sport != "All":
-        query = query.filter(Fixture.sport == sport)
+        if sport != "All":
+            query = query.filter(Fixture.sport == sport)
 
-    predictions = query.all()
-    print(f"DEBUG: /bets endpoint found {len(predictions)} predictions after filtering")
-    if len(predictions) > 0:
-        print(f"DEBUG: Sample prediction: {predictions[0].selection} ({predictions[0].market_type})")
+        predictions = query.all()
+        print(f"DEBUG: /bets endpoint found {len(predictions)} predictions after filtering")
 
-    # Get unique sports for dropdown
-    sports = db.query(Fixture.sport).distinct().all()
-    sports_list = [s[0] for s in sports]
-    if "All" not in sports_list:
-        sports_list.insert(0, "All")
+        # Get unique sports for dropdown
+        sports = db.query(Fixture.sport).distinct().all()
+        sports_list = [s[0] for s in sports]
+        if "All" not in sports_list:
+            sports_list.insert(0, "All")
 
-    # Initialize betting strategy calculator
-    from analysis.betting_strategy import BettingStrategy
-    strategy = BettingStrategy(bankroll=bankroll)
+        # Format for display
+        display_data = []
+        for p in predictions:
+            fixture = db.query(Fixture).filter(Fixture.id == p.fixture_id).first()
+            if not fixture:
+                continue
+            is_simulated = fixture.sport not in ["NFL", "NBA"]
 
-    # Format for display
-    display_data = []
-    for p in predictions:
-        fixture = db.query(Fixture).filter(Fixture.id == p.fixture_id).first()
-        is_simulated = fixture.sport not in ["NFL", "NBA"]  # NFL and NBA have real data (records + sentiment)
+            market_display = format_market_display(p.market_type)
 
-        # Format market and selection display
-        market_display = format_market_display(p.market_type)
+            odds_with_point = db.query(Odds).filter(
+                Odds.fixture_id == p.fixture_id,
+                Odds.market_type == p.market_type,
+                Odds.selection == p.selection
+            ).first()
 
-        # Get point information for spreads/totals
-        odds_with_point = db.query(Odds).filter(
-            Odds.fixture_id == p.fixture_id,
-            Odds.market_type == p.market_type,
-            Odds.selection == p.selection
-        ).first()
+            selection_display = p.selection
+            if odds_with_point and odds_with_point.point:
+                if p.market_type == 'spreads':
+                    selection_display = f"{p.selection} ({odds_with_point.point:+.1f})"
+                elif p.market_type == 'totals':
+                    selection_display = f"{p.selection} {odds_with_point.point:.1f}"
 
-        selection_display = p.selection
-        if odds_with_point and odds_with_point.point:
-            if p.market_type == 'spreads':
-                selection_display = f"{p.selection} ({odds_with_point.point:+.1f})"
-            elif p.market_type == 'totals':
-                selection_display = f"{p.selection} {odds_with_point.point:.1f}"
+            sentiment = generate_sentiment_data(p, fixture, p.confidence_level, p.value_score)
 
-        # Generate sentiment data
-        sentiment = generate_sentiment_data(p, fixture, p.confidence_level, p.value_score)
+            display_data.append({
+                "fixture": f"{fixture.home_team} vs {fixture.away_team}" if fixture.sport != "Horse Racing" else fixture.fixture_name,
+                "sport": fixture.sport,
+                "market": market_display,
+                "selection": selection_display,
+                "value": f"{p.value_score:.2f}",
+                "confidence": p.confidence_level,
+                "reasoning": p.reasoning,
+                "start_time": format_brisbane_time(fixture.start_time),
+                "is_simulated": is_simulated,
+                "sentiment": sentiment
+            })
 
-        display_data.append({
-            "fixture": f"{fixture.home_team} vs {fixture.away_team}" if fixture.sport != "Horse Racing" else fixture.fixture_name,
-            "sport": fixture.sport,
-            "market": market_display,
-            "selection": selection_display,
-            "value": f"{p.value_score:.2f}",
-            "confidence": p.confidence_level,
-            "reasoning": p.reasoning,
-            "start_time": format_brisbane_time(fixture.start_time),
-            "is_simulated": is_simulated,
-            "sentiment": sentiment
+        return templates.TemplateResponse("index.html", {
+            "request": request,
+            "predictions": display_data,
+            "sports": sports_list,
+            "current_sport": sport,
+            "refreshing": _refresh_in_progress
         })
-
-    return templates.TemplateResponse("index.html", {
-        "request": request, 
-        "predictions": display_data,
-        "sports": sports_list,
-        "current_sport": sport
-    })
+    except Exception as e:
+        print(f"❌ /bets endpoint error: {e}")
+        import traceback
+        traceback.print_exc()
+        return templates.TemplateResponse("index.html", {
+            "request": request,
+            "predictions": [],
+            "sports": ["All"],
+            "current_sport": sport,
+            "refreshing": _refresh_in_progress
+        })
 
 @app.get("/multibets")
 async def multibets(request: Request, legs: int = 0, db: Session = Depends(get_db)):

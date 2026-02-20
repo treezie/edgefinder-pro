@@ -2,7 +2,7 @@ import asyncio
 import os
 import requests
 from typing import Dict, List, Any, Optional
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 class OddsAPIFetcher:
     """
@@ -44,7 +44,6 @@ class OddsAPIFetcher:
             # --- FALLBACK / NO API KEY LOGIC (ESPN Public API) ---
             if not self.api_key:
                 print("Using ESPN Public API for NBA data (No Odds API Key)...")
-                from datetime import datetime, timedelta
                 
                 # Check next 3 days
                 for i in range(3):

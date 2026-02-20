@@ -47,6 +47,7 @@ class PropGenerator:
         name = player.get("name", "Unknown Player")
         position = player.get("position", "")
         stats_summary = player.get("stats", {})
+        game_log = player.get("game_log", {})
         
         # Ensure stats_summary is a string if it's not a dict, or extract likely string key
         # Sometimes statsSummary is a dict like {'displayName': '10 PPG'}
@@ -70,7 +71,7 @@ class PropGenerator:
         }
 
         if sport == "NBA":
-            self._generate_nba_markets(stats_str, generated_props)
+            self._generate_nba_markets(stats_str, generated_props, game_log=game_log)
         elif sport == "NFL":
             self._generate_nfl_markets(stats_str, position, generated_props)
 
@@ -80,25 +81,28 @@ class PropGenerator:
 
         return generated_props if generated_props["markets"] else None
 
-    def _generate_nba_markets(self, stats_str: str, props: Dict):
+    def _generate_nba_markets(self, stats_str: str, props: Dict, game_log: Dict = None):
         """Parse NBA stats string (e.g., '24.5 PPG, 5.2 RPG, 6.1 APG')"""
+        if game_log is None:
+            game_log = {}
+
         # Parse Points
         ppg_match = re.search(r'([\d\.]+)\s*PPG', stats_str, re.IGNORECASE)
         if ppg_match:
             avg = float(ppg_match.group(1))
-            self._add_market(props, "Points", avg, variance=0.15)
+            self._add_market(props, "Points", avg, variance=0.15, game_log=game_log, log_key="pts")
 
         # Parse Rebounds
         rpg_match = re.search(r'([\d\.]+)\s*RPG', stats_str, re.IGNORECASE)
         if rpg_match:
             avg = float(rpg_match.group(1))
-            self._add_market(props, "Rebounds", avg, variance=0.20)
+            self._add_market(props, "Rebounds", avg, variance=0.20, game_log=game_log, log_key="reb")
 
         # Parse Assists
         apg_match = re.search(r'([\d\.]+)\s*APG', stats_str, re.IGNORECASE)
         if apg_match:
             avg = float(apg_match.group(1))
-            self._add_market(props, "Assists", avg, variance=0.25)
+            self._add_market(props, "Assists", avg, variance=0.25, game_log=game_log, log_key="ast")
 
     def _generate_nfl_markets(self, stats_data: Any, position: str, props: Dict):
         """Parse NFL stats - handles both string summary and detailed dict"""
@@ -249,57 +253,48 @@ class PropGenerator:
                 label = "Rushing Yards" if position == "RB" else "Receiving Yards"
                 self._add_market(props, label, 65.5, variance=0.25)
 
-    def _add_market(self, props: Dict, market_name: str, avg_value: float, variance: float = 0.15, is_yards: bool = False):
+    def _add_market(self, props: Dict, market_name: str, avg_value: float, variance: float = 0.15, is_yards: bool = False, game_log: Dict = None, log_key: str = None):
         import random
-        # Create a "Line" slightly below the average to make it interesting (e.g. avg 25 -> line 24.5)
-        # Calculate clean line (ending in .5)
+
         line = round(avg_value) - 0.5
         if line < 0.5: line = 0.5
-        
-        # Calculate AI projection (random variance around base stat for simulation)
-        # In real world, this would use a complex model.
-        # We simulate "AI Intelligence" by creating a deviation.
+
         deviation = avg_value * random.uniform(-variance, variance)
         projection = avg_value + deviation
-        
-        # Ensure projection isn't negative
         if projection < 0: projection = 0.1
-        
-        # Determine color/status
-        # If Projection > Line -> Green (Over)
-        # If Projection < Line -> Red (Under)
+
         is_over = projection > line
-        
-        # Generate Justification
-        recent_games = random.randint(3, 5)
-        justification = ""
-        
-        if is_over:
-            # Over justification
-            # Simulate a strong H2H stat if we want to cite opponent history
-            h2h_avg = round(projection * random.uniform(0.95, 1.05), 1)
-            
-            reasons = [
-                f"Exceeded {line} in {random.randint(3,5)} of last 5 games",
-                f"Averages {h2h_avg} {market_name.split(' ')[-1]} in last 3 vs this opponent",
-                f"Projected {projection:.1f} is significantly above implied total",
-                f"Hot Streak: consistently clearing {line} in recent starts",
-                f"Matchup Advantage: Opponent allows top 5 most {market_name}"
-            ]
-            justification = random.choice(reasons)
-        else:
-             # Under justification
-            # Simulate a lower stat for context
-            road_avg = round(avg_value * random.uniform(0.7, 0.9), 1)
-            
-            reasons = [
-                f"Remained Under {line} in {random.randint(3,5)} of last 5 games",
-                f"Facing #1 ranked defense against {market_name.split(' ')[0]}",
-                f"Regression expected: Averages {road_avg} {market_name.split(' ')[-1]} in away games",
-                f"Cooling off: Below {line} in 3 straight appearances",
-                f"Volume concern: Usage rate projected to decrease"
-            ]
-            justification = random.choice(reasons)
+
+        # --- Build justification from real game log data ---
+        justification_parts = []
+
+        # 1. Last 5 games insight (real data if available)
+        last5_avg = None
+        if game_log and log_key:
+            last5_key = f"last_n_avg_{log_key}"
+            last5_avg = game_log.get(last5_key)
+            last5_count = game_log.get("last_n_count", 5)
+            if last5_avg is not None:
+                justification_parts.append(f"Last {last5_count} games: {last5_avg} {market_name} avg")
+
+        # 2. Vs opponent insight (real data if available)
+        if game_log and log_key:
+            vs_key = f"vs_opponent_avg_{log_key}"
+            vs_avg = game_log.get(vs_key)
+            vs_count = game_log.get("vs_opponent_count", 0)
+            vs_name = game_log.get("vs_opponent_name", "this opponent")
+            if vs_avg is not None and vs_count > 0:
+                justification_parts.append(f"Averages {vs_avg} {market_name} in last {vs_count} vs {vs_name}")
+
+        # 3. Fallback if no real data
+        if not justification_parts:
+            if is_over:
+                h2h_avg = round(projection * random.uniform(0.95, 1.05), 1)
+                justification_parts.append(f"Projected {projection:.1f} is above the {line} line")
+            else:
+                justification_parts.append(f"Projected {projection:.1f} is below the {line} line")
+
+        justification = "  |  ".join(justification_parts)
 
         props["markets"].append({
             "market_name": market_name,

@@ -731,12 +731,39 @@ async def get_props(fixture_id: str, db: Session = Depends(get_db)):
             return JSONResponse(status_code=404, content={"error": "Fixture not found"})
 
         import asyncio
-        
+
         home_players, away_players = await asyncio.gather(
             player_fetcher.get_top_players(fixture.home_team, fixture.sport, limit=8),
             player_fetcher.get_top_players(fixture.away_team, fixture.sport, limit=8)
         )
-        
+
+        # Fetch game logs for all players (for last 5 games + vs opponent insights)
+        sport_key = "basketball" if fixture.sport == "NBA" else "football"
+        league_key = "nba" if fixture.sport == "NBA" else "nfl"
+
+        async def fetch_game_log(player, opponent_team):
+            pid = player.get("id")
+            if not pid:
+                return {}
+            loop = asyncio.get_event_loop()
+            return await loop.run_in_executor(
+                None,
+                lambda: player_fetcher.get_player_game_log(pid, sport_key, league_key, opponent=opponent_team, limit=5)
+            )
+
+        home_log_tasks = [fetch_game_log(p, fixture.away_team) for p in home_players]
+        away_log_tasks = [fetch_game_log(p, fixture.home_team) for p in away_players]
+        all_logs = await asyncio.gather(*home_log_tasks, *away_log_tasks)
+
+        home_logs = all_logs[:len(home_players)]
+        away_logs = all_logs[len(home_players):]
+
+        # Attach game logs to player dicts
+        for player, log in zip(home_players, home_logs):
+            player["game_log"] = log
+        for player, log in zip(away_players, away_logs):
+            player["game_log"] = log
+
         props = prop_generator.generate_props(
             sport=fixture.sport,
             home_team=fixture.home_team,
@@ -744,7 +771,7 @@ async def get_props(fixture_id: str, db: Session = Depends(get_db)):
             home_players=home_players,
             away_players=away_players
         )
-        
+
         return props
     except Exception as e:
         print(f"Error generating props: {e}")

@@ -43,6 +43,75 @@ class PlayerStatsFetcher:
 
 
 
+    def get_player_game_log(self, player_id: str, sport: str, league: str, opponent: str = None, limit: int = 5) -> Dict[str, Any]:
+        """
+        Fetch a player's recent game log from ESPN.
+        Returns last N games stats + averages, and optionally filters vs a specific opponent.
+        """
+        try:
+            url = f"https://site.api.espn.com/apis/common/v3/sports/{sport}/{league}/athletes/{player_id}/gamelog"
+            response = requests.get(url, timeout=8)
+            if response.status_code != 200:
+                return {}
+
+            data = response.json()
+            labels = data.get("labels", [])
+            events_map = data.get("events", {})
+
+            all_games = []
+            for st in data.get("seasonTypes", []):
+                if "Regular Season" not in st.get("displayName", ""):
+                    continue
+                for cat in st.get("categories", []):
+                    for ev in cat.get("events", []):
+                        event_id = str(ev.get("eventId"))
+                        stats = ev.get("stats", [])
+                        stat_dict = {}
+                        for i, label in enumerate(labels):
+                            if i < len(stats):
+                                stat_dict[label] = stats[i]
+
+                        event_info = events_map.get(event_id, {})
+                        opp_name = event_info.get("opponent", {}).get("displayName", "Unknown")
+
+                        all_games.append({"opponent": opp_name, "stats": stat_dict})
+
+            if not all_games:
+                return {}
+
+            # Last N games (most recent first)
+            last_n = all_games[:limit]
+
+            # Calculate averages for last N games
+            def avg_stat(games, key):
+                vals = [float(g["stats"].get(key, 0)) for g in games]
+                return round(sum(vals) / len(vals), 1) if vals else 0.0
+
+            result = {
+                "last_n_count": len(last_n),
+                "last_n_avg_pts": avg_stat(last_n, "PTS"),
+                "last_n_avg_reb": avg_stat(last_n, "REB"),
+                "last_n_avg_ast": avg_stat(last_n, "AST"),
+            }
+
+            # Filter vs specific opponent if provided
+            if opponent:
+                opp_lower = opponent.lower()
+                vs_games = [g for g in all_games if opp_lower in g["opponent"].lower()]
+                if vs_games:
+                    vs_recent = vs_games[:3]
+                    result["vs_opponent_count"] = len(vs_recent)
+                    result["vs_opponent_avg_pts"] = avg_stat(vs_recent, "PTS")
+                    result["vs_opponent_avg_reb"] = avg_stat(vs_recent, "REB")
+                    result["vs_opponent_avg_ast"] = avg_stat(vs_recent, "AST")
+                    result["vs_opponent_name"] = opponent
+
+            return result
+
+        except Exception as e:
+            print(f"⚠ Error fetching game log for player {player_id}: {e}")
+            return {}
+
     def _get_player_details(self, player_id: str, sport: str, league: str = "nfl") -> Dict[str, Any]:
         """
         Fetch detailed player stats from the overview endpoint.

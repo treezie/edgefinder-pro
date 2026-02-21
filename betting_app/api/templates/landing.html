@@ -618,7 +618,7 @@
         </div>
         <h3 style="color: #FFFFFF; margin-top: 24px; font-family: 'Outfit', sans-serif; font-size: 1.5rem;">Initializing
             EdgeFinder Pro...</h3>
-        <p style="color: #94A3B8; font-size: 1rem; margin-top: 8px;">Fetching real-time odds and analytics</p>
+        <p id="loading-overlay-subtitle" style="color: #94A3B8; font-size: 1rem; margin-top: 8px;">Fetching real-time odds and analytics</p>
     </div>
 
     <style>
@@ -644,36 +644,76 @@
             }
         });
 
-        function showLoading(e) {
-            // Prevent default just to show the loading immediately, 
-            // but we actually want the navigation to happen.
-            // Since it's a synchronous navigation, the browser might freeze valid updates
-            // but the overlay should render first if we give it a microtask.
+        const STATUS_MESSAGES = [
+            "Fetching live odds from bookmakers...",
+            "Analyzing NRL, NBA & NFL markets...",
+            "Building prop projections...",
+            "Running sentiment analysis...",
+            "Generating multi-bet combinations...",
+            "Almost ready..."
+        ];
 
+        function startPollingRefresh(targetUrl) {
             const overlay = document.getElementById('loading-overlay');
+            const subtitle = document.getElementById('loading-overlay-subtitle');
             overlay.style.display = 'flex';
 
-            // Allow the click to proceed mostly naturally, but ensuring DOM updates
-            // We don't strictly need to prevent default if we just let the browser handle it,
-            // but sometimes the browser halts painting to wait for the response.
-            // A small hack is often used: show loader, then Navigate.
+            let msgIndex = 0;
+            const msgInterval = setInterval(() => {
+                msgIndex = (msgIndex + 1) % STATUS_MESSAGES.length;
+                subtitle.textContent = STATUS_MESSAGES[msgIndex];
+            }, 5000);
 
-            // However, for a simple <a> tag, the browser usually renders pending changes before request.
-            // If it doesn't, we can use: e.preventDefault(); window.location.href = e.currentTarget.href;
+            const startTime = Date.now();
+            const TIMEOUT = 90000;
 
-            // Let's rely on standard click but update DOM first.
+            // Kick off the refresh pipeline
+            fetch('/api/refresh', { method: 'POST' })
+                .then(res => res.json())
+                .then(() => {
+                    // Poll for completion
+                    const pollInterval = setInterval(() => {
+                        const elapsed = Date.now() - startTime;
+                        if (elapsed >= TIMEOUT) {
+                            clearInterval(pollInterval);
+                            clearInterval(msgInterval);
+                            window.location.href = targetUrl;
+                            return;
+                        }
+
+                        fetch('/api/refresh/status')
+                            .then(res => res.json())
+                            .then(data => {
+                                if (!data.refreshing) {
+                                    clearInterval(pollInterval);
+                                    clearInterval(msgInterval);
+                                    window.location.href = targetUrl;
+                                }
+                            })
+                            .catch(() => {}); // Ignore transient poll errors
+                    }, 3000);
+                })
+                .catch(err => {
+                    console.error("Refresh failed:", err);
+                    clearInterval(msgInterval);
+                    // Navigate anyway on error
+                    window.location.href = targetUrl;
+                });
         }
 
-        // Attach to specific links
+        // Attach to all app navigation links
         document.addEventListener('DOMContentLoaded', () => {
-            const entryLinks = document.querySelectorAll('a[href="/bets"]');
-            entryLinks.forEach(link => {
+            const appPaths = ['/bets', '/props', '/multibets', '/analytics', '/strategy', '/news'];
+            const selector = appPaths.map(p => 'a[href="' + p + '"]').join(', ');
+            const appLinks = document.querySelectorAll(selector);
+
+            appLinks.forEach(link => {
                 link.addEventListener('click', (e) => {
-                    // Don't show loader if opening in new tab/window
+                    // Don't intercept if opening in new tab/window
                     if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
 
-                    const overlay = document.getElementById('loading-overlay');
-                    overlay.style.display = 'flex';
+                    e.preventDefault();
+                    startPollingRefresh(link.getAttribute('href'));
                 });
             });
         });

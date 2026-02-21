@@ -915,30 +915,39 @@
             async function refreshData() {
                 if (window.triggerSmartRefresh) {
                     window.triggerSmartRefresh();
-                } else {
-                    const btn = document.querySelector('.refresh-btn');
-                    const originalText = btn.innerText;
-                    btn.innerText = 'Refreshing...';
-                    btn.disabled = true;
+                    return;
+                }
 
-                    try {
-                        const response = await fetch('/api/refresh', {
-                            method: 'POST'
-                        });
+                // Fallback: poll until pipeline completes
+                const btn = document.querySelector('.refresh-btn');
+                const originalText = btn.innerText;
+                btn.innerText = 'Refreshing...';
+                btn.disabled = true;
 
-                        if (response.ok) {
+                try {
+                    await fetch('/api/refresh', { method: 'POST' });
+                    const startTime = Date.now();
+                    const pollInterval = setInterval(() => {
+                        if (Date.now() - startTime >= 90000) {
+                            clearInterval(pollInterval);
                             location.reload();
-                        } else {
-                            alert('Failed to refresh data');
-                            btn.innerText = originalText;
-                            btn.disabled = false;
+                            return;
                         }
-                    } catch (error) {
-                        console.error('Error refreshing data:', error);
-                        alert('Error refreshing data');
-                        btn.innerText = originalText;
-                        btn.disabled = false;
-                    }
+                        fetch('/api/refresh/status')
+                            .then(res => res.json())
+                            .then(data => {
+                                if (!data.refreshing) {
+                                    clearInterval(pollInterval);
+                                    location.reload();
+                                }
+                            })
+                            .catch(() => {});
+                    }, 3000);
+                } catch (error) {
+                    console.error('Error refreshing data:', error);
+                    alert('Error refreshing data');
+                    btn.innerText = originalText;
+                    btn.disabled = false;
                 }
             }
 

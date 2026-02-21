@@ -939,23 +939,6 @@
             arrow.classList.toggle('open');
         }
 
-        function refreshData() {
-            const btn = document.querySelector('.refresh-btn');
-            btn.textContent = 'Refreshing...';
-            btn.disabled = true;
-
-            fetch('/refresh', { method: 'POST' })
-                .then(response => response.json())
-                .then(data => {
-                    location.reload();
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    btn.textContent = 'Refresh Data';
-                    btn.disabled = false;
-                });
-        }
-
         function populateGameFilter() {
             const cards = document.querySelectorAll('.card');
             const gameFilter = document.getElementById('gameFilter');
@@ -1056,24 +1039,38 @@
         async function refreshData() {
             if (window.triggerSmartRefresh) {
                 window.triggerSmartRefresh();
-            } else {
-                // Fallback if modal script hasn't loaded yet
-                const btn = document.querySelector('.refresh-btn');
-                btn.innerText = 'Refreshing...';
+                return;
+            }
 
-                try {
-                    const response = await fetch('/api/refresh', { method: 'POST' });
-                    if (response.ok) {
+            // Fallback: poll until pipeline completes
+            const btn = document.querySelector('.refresh-btn');
+            btn.innerText = 'Refreshing...';
+            btn.disabled = true;
+
+            try {
+                await fetch('/api/refresh', { method: 'POST' });
+                const startTime = Date.now();
+                const pollInterval = setInterval(() => {
+                    if (Date.now() - startTime >= 90000) {
+                        clearInterval(pollInterval);
                         location.reload();
-                    } else {
-                        alert('Failed to refresh data');
-                        btn.innerText = 'Refresh Data';
+                        return;
                     }
-                } catch (error) {
-                    console.error('Error refreshing data:', error);
-                    alert('Error refreshing data');
-                    btn.innerText = 'Refresh Data';
-                }
+                    fetch('/api/refresh/status')
+                        .then(res => res.json())
+                        .then(data => {
+                            if (!data.refreshing) {
+                                clearInterval(pollInterval);
+                                location.reload();
+                            }
+                        })
+                        .catch(() => {});
+                }, 3000);
+            } catch (error) {
+                console.error('Error refreshing data:', error);
+                alert('Error refreshing data');
+                btn.innerText = 'Refresh Data';
+                btn.disabled = false;
             }
         }
 

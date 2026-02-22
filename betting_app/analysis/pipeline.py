@@ -4,7 +4,7 @@ import time
 from dotenv import load_dotenv
 from sqlalchemy.orm import Session
 from database.db import SessionLocal, engine, Base
-from database.models import Fixture, Odds, Sentiment, Prediction
+from database.models import Fixture, Odds, Sentiment, Prediction, PredictionSnapshot
 from scrapers.mock_scraper import MockScraper
 from scrapers.history_fetcher import HistoricalFetcher
 from scrapers.sentiment_fetcher import SentimentFetcher
@@ -324,6 +324,57 @@ class AnalysisPipeline:
                     )
                     db.add(prediction)
                 
+                # 4. Snapshot prediction for accuracy tracking
+                existing_snap = (
+                    db.query(PredictionSnapshot)
+                    .filter_by(
+                        fixture_id=fixture.id,
+                        market_type=first_item["market_type"],
+                        selection=first_item["selection"],
+                    )
+                    .first()
+                )
+
+                best_odds_entry = (
+                    db.query(Odds)
+                    .filter(
+                        Odds.fixture_id == fixture.id,
+                        Odds.market_type == first_item["market_type"],
+                        Odds.selection == first_item["selection"],
+                    )
+                    .order_by(Odds.price.desc())
+                    .first()
+                )
+
+                snap_odds = best_odds_entry.price if best_odds_entry else best_price
+                snap_point = best_odds_entry.point if best_odds_entry else first_item.get("point")
+
+                if existing_snap:
+                    existing_snap.model_probability = true_prob
+                    existing_snap.value_score = value
+                    existing_snap.confidence_level = confidence
+                    existing_snap.is_recommended = is_adj_rec
+                    existing_snap.best_odds = snap_odds
+                    existing_snap.point = snap_point
+                else:
+                    snapshot = PredictionSnapshot(
+                        fixture_id=fixture.id,
+                        sport=first_item["sport"],
+                        league=first_item["league"],
+                        home_team=first_item["home_team"],
+                        away_team=first_item["away_team"],
+                        start_time=first_item["start_time"],
+                        market_type=first_item["market_type"],
+                        selection=first_item["selection"],
+                        model_probability=true_prob,
+                        value_score=value,
+                        confidence_level=confidence,
+                        is_recommended=is_adj_rec,
+                        best_odds=snap_odds,
+                        point=snap_point,
+                    )
+                    db.add(snapshot)
+
                 # Commit everything at once
                 db.commit()
 

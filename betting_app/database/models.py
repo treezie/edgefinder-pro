@@ -18,12 +18,16 @@ class Fixture(Base):
     away_team = Column(String, index=True)
     start_time = Column(DateTime(timezone=True))
     status = Column(String, default="scheduled") # scheduled, live, finished, postponed
+    home_score = Column(Integer, nullable=True)
+    away_score = Column(Integer, nullable=True)
+    result_settled_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     odds = relationship("Odds", back_populates="fixture")
     sentiment = relationship("Sentiment", back_populates="fixture")
     predictions = relationship("Prediction", back_populates="fixture")
+    snapshots = relationship("PredictionSnapshot", back_populates="fixture")
 
 class Odds(Base):
     __tablename__ = "odds"
@@ -66,3 +70,27 @@ class Prediction(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     fixture = relationship("Fixture", back_populates="predictions")
+
+class PredictionSnapshot(Base):
+    __tablename__ = "prediction_snapshots"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    fixture_id = Column(String, ForeignKey("fixtures.id"))
+    sport = Column(String, index=True)
+    league = Column(String)
+    home_team = Column(String)
+    away_team = Column(String)
+    start_time = Column(DateTime(timezone=True))
+    market_type = Column(String)
+    selection = Column(String)
+    model_probability = Column(Float)
+    value_score = Column(Float)
+    confidence_level = Column(String)
+    is_recommended = Column(Boolean, default=False)
+    best_odds = Column(Float, nullable=True)
+    point = Column(Float, nullable=True)
+    outcome = Column(String, nullable=True)  # "correct", "incorrect", "push", None
+    settled_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    fixture = relationship("Fixture", back_populates="snapshots")

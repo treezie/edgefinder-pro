@@ -10,12 +10,12 @@ from typing import List, Optional, Dict, Any
 import feedparser
 from dateutil import parser as date_parser
 from itertools import combinations
-from datetime import timezone, datetime
+from datetime import timezone, datetime, timedelta
 import pytz
 from dotenv import load_dotenv
 from sqlalchemy.orm import Session
 from database.db import get_db, SessionLocal, engine, Base
-from database.models import Fixture, Odds, Prediction
+from database.models import Fixture, Odds, Prediction, PredictionSnapshot
 from analysis.pipeline import AnalysisPipeline
 
 # Load environment variables from .env file
@@ -976,8 +976,129 @@ async def news_page(request: Request):
             
     print(f"Total news items: {len(news_items)}")
     return templates.TemplateResponse("news.html", {
-        "request": request, 
+        "request": request,
         "news_items": news_items
     })
 
 
+@app.get("/accuracy", response_class=HTMLResponse)
+async def accuracy_page(request: Request, days: int = 3, db: Session = Depends(get_db)):
+    """Prediction accuracy dashboard."""
+    from scrapers.results_fetcher import ResultsFetcher
+    from collections import defaultdict
+
+    days = max(1, min(7, days))
+
+    # Settle unsettled games via ESPN
+    try:
+        ResultsFetcher().fetch_and_settle(db, days_back=days)
+    except Exception as e:
+        print(f"Results settlement error: {e}")
+
+    cutoff = datetime.utcnow() - timedelta(days=days)
+
+    # All snapshots in window
+    all_snaps = (
+        db.query(PredictionSnapshot)
+        .filter(PredictionSnapshot.start_time >= cutoff)
+        .order_by(PredictionSnapshot.start_time.desc())
+        .all()
+    )
+
+    settled = [s for s in all_snaps if s.outcome is not None]
+    pending = [s for s in all_snaps if s.outcome is None]
+
+    # --- Overall stats ---
+    total_settled = len(settled)
+    correct = sum(1 for s in settled if s.outcome == "correct")
+    overall_rate = round((correct / total_settled) * 100, 1) if total_settled else 0
+
+    rec_settled = [s for s in settled if s.is_recommended]
+    rec_correct = sum(1 for s in rec_settled if s.outcome == "correct")
+    rec_rate = round((rec_correct / len(rec_settled)) * 100, 1) if rec_settled else 0
+
+    # --- By sport ---
+    by_sport = defaultdict(lambda: {"total": 0, "correct": 0})
+    for s in settled:
+        by_sport[s.sport]["total"] += 1
+        if s.outcome == "correct":
+            by_sport[s.sport]["correct"] += 1
+    sport_stats = [
+        {"sport": k, "total": v["total"], "correct": v["correct"],
+         "rate": round((v["correct"] / v["total"]) * 100, 1) if v["total"] else 0}
+        for k, v in sorted(by_sport.items())
+    ]
+
+    # --- By confidence ---
+    by_conf = defaultdict(lambda: {"total": 0, "correct": 0})
+    for s in settled:
+        by_conf[s.confidence_level]["total"] += 1
+        if s.outcome == "correct":
+            by_conf[s.confidence_level]["correct"] += 1
+    conf_order = ["High", "Medium", "Low"]
+    conf_stats = [
+        {"level": k, "total": by_conf[k]["total"], "correct": by_conf[k]["correct"],
+         "rate": round((by_conf[k]["correct"] / by_conf[k]["total"]) * 100, 1) if by_conf[k]["total"] else 0}
+        for k in conf_order if k in by_conf
+    ]
+
+    # --- By market type ---
+    by_market = defaultdict(lambda: {"total": 0, "correct": 0})
+    for s in settled:
+        by_market[s.market_type]["total"] += 1
+        if s.outcome == "correct":
+            by_market[s.market_type]["correct"] += 1
+    market_stats = [
+        {"market": format_market_display(k), "total": v["total"], "correct": v["correct"],
+         "rate": round((v["correct"] / v["total"]) * 100, 1) if v["total"] else 0}
+        for k, v in sorted(by_market.items())
+    ]
+
+    # --- Daily breakdown ---
+    by_day = defaultdict(list)
+    for s in all_snaps:
+        st = s.start_time
+        if st and st.tzinfo is None:
+            st = st.replace(tzinfo=timezone.utc)
+        if st:
+            day_key = st.astimezone(pytz.timezone("Australia/Brisbane")).strftime("%a, %b %d")
+            by_day[day_key].append(s)
+
+    daily_breakdown = []
+    for day_label, snaps in by_day.items():
+        day_settled = [s for s in snaps if s.outcome is not None]
+        day_correct = sum(1 for s in day_settled if s.outcome == "correct")
+        day_rate = round((day_correct / len(day_settled)) * 100, 1) if day_settled else 0
+        picks = []
+        for s in snaps:
+            picks.append({
+                "fixture": f"{s.home_team} vs {s.away_team}",
+                "sport": s.sport,
+                "market": format_market_display(s.market_type),
+                "selection": s.selection,
+                "odds": f"{s.best_odds:.2f}" if s.best_odds else "-",
+                "confidence": s.confidence_level,
+                "outcome": s.outcome or "pending",
+                "home_score": s.fixture.home_score if s.fixture and s.fixture.home_score is not None else "-",
+                "away_score": s.fixture.away_score if s.fixture and s.fixture.away_score is not None else "-",
+            })
+        daily_breakdown.append({
+            "day": day_label,
+            "total": len(day_settled),
+            "correct": day_correct,
+            "rate": day_rate,
+            "picks": picks,
+        })
+
+    return templates.TemplateResponse("accuracy.html", {
+        "request": request,
+        "days": days,
+        "overall_rate": overall_rate,
+        "total_settled": total_settled,
+        "rec_rate": rec_rate,
+        "pending_count": len(pending),
+        "sport_stats": sport_stats,
+        "conf_stats": conf_stats,
+        "market_stats": market_stats,
+        "daily_breakdown": daily_breakdown,
+    })

@@ -440,6 +440,7 @@
                 <a href="#technology">Technology</a>
                 <a href="/props">Prop Builder</a>
                 <a href="/news">News</a>
+                <a href="/accuracy">Accuracy</a>
                 <a href="/bets" class="btn-primary">Launch App</a>
             </div>
         </div>
@@ -703,7 +704,7 @@
 
         // Attach to all app navigation links
         document.addEventListener('DOMContentLoaded', () => {
-            const appPaths = ['/bets', '/props', '/multibets', '/analytics', '/strategy', '/news'];
+            const appPaths = ['/bets', '/props', '/multibets', '/analytics', '/strategy', '/news', '/accuracy'];
             const selector = appPaths.map(p => 'a[href="' + p + '"]').join(', ');
             const appLinks = document.querySelectorAll(selector);
 

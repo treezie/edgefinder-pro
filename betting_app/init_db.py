@@ -1,5 +1,5 @@
 from database.db import engine, Base
-from database.models import Fixture, Odds, Sentiment, Prediction
+from database.models import Fixture, Odds, Sentiment, Prediction, PredictionSnapshot
 
 def init_db():
     print("Creating database tables...")

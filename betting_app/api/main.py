@@ -995,7 +995,7 @@ async def accuracy_page(request: Request, days: int = 3, db: Session = Depends(g
     except Exception as e:
         print(f"Results settlement error: {e}")
 
-    cutoff = datetime.utcnow() - timedelta(days=days)
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
 
     # All snapshots in window
     all_snaps = (

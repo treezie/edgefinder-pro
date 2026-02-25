@@ -14,6 +14,7 @@ from datetime import timezone, datetime, timedelta
 import pytz
 from dotenv import load_dotenv
 from sqlalchemy.orm import Session
+from sqlalchemy import or_
 from database.db import get_db, SessionLocal, engine, Base
 from database.models import Fixture, Odds, Prediction, PredictionSnapshot
 from analysis.pipeline import AnalysisPipeline
@@ -981,6 +982,53 @@ async def news_page(request: Request):
     })
 
 
+@app.get("/api/debug/accuracy")
+async def debug_accuracy(db: Session = Depends(get_db)):
+    """Diagnostic endpoint — shows snapshot counts and sample data."""
+    total_snapshots = db.query(PredictionSnapshot).count()
+    settled_snapshots = db.query(PredictionSnapshot).filter(PredictionSnapshot.outcome.isnot(None)).count()
+    pending_snapshots = db.query(PredictionSnapshot).filter(PredictionSnapshot.outcome.is_(None)).count()
+
+    recent = (
+        db.query(PredictionSnapshot)
+        .order_by(PredictionSnapshot.created_at.desc())
+        .limit(5)
+        .all()
+    )
+    samples = [
+        {
+            "id": s.id[:8],
+            "fixture": f"{s.home_team} vs {s.away_team}",
+            "sport": s.sport,
+            "market": s.market_type,
+            "selection": s.selection,
+            "outcome": s.outcome,
+            "start_time": str(s.start_time),
+            "created_at": str(s.created_at),
+        }
+        for s in recent
+    ]
+
+    # Check unsettled fixtures (past games with no score)
+    unsettled_fixtures = (
+        db.query(Fixture)
+        .filter(
+            Fixture.start_time < datetime.now(timezone.utc),
+            Fixture.result_settled_at.is_(None),
+        )
+        .count()
+    )
+
+    return {
+        "total_snapshots": total_snapshots,
+        "settled_snapshots": settled_snapshots,
+        "pending_snapshots": pending_snapshots,
+        "unsettled_fixtures": unsettled_fixtures,
+        "utc_now": str(datetime.now(timezone.utc)),
+        "recent_snapshots": samples,
+    }
+
+
 @app.get("/accuracy", response_class=HTMLResponse)
 async def accuracy_page(request: Request, days: int = 3, db: Session = Depends(get_db)):
     """Prediction accuracy dashboard."""
@@ -989,18 +1037,24 @@ async def accuracy_page(request: Request, days: int = 3, db: Session = Depends(g
 
     days = max(1, min(7, days))
 
-    # Settle unsettled games via ESPN
+    # Always settle up to 7 days back regardless of display window,
+    # so results are populated even when viewing a narrow window.
     try:
-        ResultsFetcher().fetch_and_settle(db, days_back=days)
+        ResultsFetcher().fetch_and_settle(db, days_back=7)
     except Exception as e:
         print(f"Results settlement error: {e}")
+        import traceback
+        traceback.print_exc()
 
     cutoff = datetime.now(timezone.utc) - timedelta(days=days)
 
-    # All snapshots in window
+    # All snapshots in window — match on EITHER start_time or created_at
+    # so snapshots aren't missed if start_time is slightly outside the window.
     all_snaps = (
         db.query(PredictionSnapshot)
-        .filter(PredictionSnapshot.start_time >= cutoff)
+        .filter(
+            or_(PredictionSnapshot.start_time >= cutoff, PredictionSnapshot.created_at >= cutoff)
+        )
         .order_by(PredictionSnapshot.start_time.desc())
         .all()
     )
@@ -1010,6 +1064,7 @@ async def accuracy_page(request: Request, days: int = 3, db: Session = Depends(g
 
     # --- Overall stats ---
     total_settled = len(settled)
+    total_snapshots = len(all_snaps)
     correct = sum(1 for s in settled if s.outcome == "correct")
     overall_rate = round((correct / total_settled) * 100, 1) if total_settled else 0
 
@@ -1095,6 +1150,7 @@ async def accuracy_page(request: Request, days: int = 3, db: Session = Depends(g
         "days": days,
         "overall_rate": overall_rate,
         "total_settled": total_settled,
+        "total_snapshots": total_snapshots,
         "rec_rate": rec_rate,
         "pending_count": len(pending),
         "sport_stats": sport_stats,

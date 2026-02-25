@@ -464,11 +464,13 @@
             </div>
         </div>
 
-        {% if total_settled > 0 %}
+        {% if total_snapshots > 0 %}
         <!-- Stats Overview -->
         <div class="stats-grid">
             <div class="stat-card">
-                <div class="stat-value {% if overall_rate >= 55 %}green{% elif overall_rate >= 45 %}amber{% else %}muted{% endif %}">{{ overall_rate }}%</div>
+                <div class="stat-value {% if total_settled > 0 %}{% if overall_rate >= 55 %}green{% elif overall_rate >= 45 %}amber{% else %}muted{% endif %}{% else %}muted{% endif %}">
+                    {% if total_settled > 0 %}{{ overall_rate }}%{% else %}-{% endif %}
+                </div>
                 <div class="stat-label">Overall Win Rate</div>
             </div>
             <div class="stat-card">
@@ -476,16 +478,19 @@
                 <div class="stat-label">Total Settled</div>
             </div>
             <div class="stat-card">
-                <div class="stat-value {% if rec_rate >= 55 %}green{% elif rec_rate >= 45 %}amber{% else %}muted{% endif %}">{{ rec_rate }}%</div>
+                <div class="stat-value {% if total_settled > 0 %}{% if rec_rate >= 55 %}green{% elif rec_rate >= 45 %}amber{% else %}muted{% endif %}{% else %}muted{% endif %}">
+                    {% if total_settled > 0 %}{{ rec_rate }}%{% else %}-{% endif %}
+                </div>
                 <div class="stat-label">Recommended Win Rate</div>
             </div>
             <div class="stat-card">
-                <div class="stat-value muted">{{ pending_count }}</div>
+                <div class="stat-value amber">{{ pending_count }}</div>
                 <div class="stat-label">Pending</div>
             </div>
         </div>
 
-        <!-- Breakdowns -->
+        {% if total_settled > 0 %}
+        <!-- Breakdowns — only shown when we have settled data -->
         <div class="breakdown-grid">
             <!-- By Sport -->
             <div class="breakdown-card">
@@ -532,6 +537,7 @@
                 {% endfor %}
             </div>
         </div>
+        {% endif %}
 
         <!-- Daily Breakdown -->
         <h2 class="section-title">Daily Breakdown</h2>
@@ -585,11 +591,15 @@
         {% endfor %}
 
         {% else %}
-        <!-- Empty State -->
+        <!-- Empty State — zero snapshots exist in the database -->
         <div class="empty-state">
-            <h2>No Settled Predictions Yet</h2>
-            <p>Predictions will appear here once games finish and results are fetched from ESPN.</p>
-            <p style="margin-top: 8px;">Run a data refresh to generate prediction snapshots, then check back after games conclude.</p>
+            <h2>No Prediction Snapshots Found</h2>
+            <p>The prediction_snapshots table is empty. This means the pipeline hasn't run since the accuracy feature was deployed.</p>
+            <p style="margin-top: 12px; color: var(--teal-accent); font-weight: 600;">
+                Go to <a href="/bets" style="color: var(--teal-accent); text-decoration: underline;">Single Bets</a>
+                and click "Refresh Data" to trigger the pipeline, which will create snapshots.
+            </p>
+            <p style="margin-top: 8px;">After games finish, revisit this page to see accuracy results.</p>
         </div>
         {% endif %}
     </div>

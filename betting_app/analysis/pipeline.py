@@ -1,8 +1,10 @@
 import asyncio
+import os
 import time
+from dotenv import load_dotenv
 from sqlalchemy.orm import Session
 from database.db import SessionLocal, engine, Base
-from database.models import Fixture, Odds, Sentiment, Prediction
+from database.models import Fixture, Odds, Sentiment, Prediction, PredictionSnapshot
 from scrapers.mock_scraper import MockScraper
 from scrapers.history_fetcher import HistoricalFetcher
 from scrapers.sentiment_fetcher import SentimentFetcher
@@ -14,6 +16,8 @@ from scrapers.odds_api_fetcher import OddsAPIFetcher
 from scrapers.team_stats_fetcher import TeamStatsFetcher
 from scrapers.weather_fetcher import WeatherFetcher
 from scrapers.player_stats_fetcher import PlayerStatsFetcher
+
+load_dotenv()
 
 class AnalysisPipeline:
     def __init__(self):
@@ -30,7 +34,7 @@ class AnalysisPipeline:
         self.scrapers = {
             "NFL": NFLScraper(),
             "NRL": NRLScraper(),
-            "NBA": OddsAPIFetcher(api_key=None) # API key effectively loaded from env variables inside class or handled
+            "NBA": OddsAPIFetcher(api_key=os.getenv('ODDS_API_KEY'))
         }
 
     async def run(self):
@@ -166,8 +170,9 @@ class AnalysisPipeline:
             # --- PHASE 2: CALCULATIONS (CPU Bound - Fast, safe) ---
             
             win_rate = stats["win_rate"]
-            sent_score = sentiment["sentiment_score"]
-            
+            sent_score_1_10 = sentiment["sentiment_score_1_10"]
+            sent_confidence = sentiment["confidence"]
+
             base_prob = win_rate
             if opp_stats:
                 opp_win_rate = opp_stats["win_rate"]
@@ -177,12 +182,14 @@ class AnalysisPipeline:
                 else:
                     base_prob = 0.5
 
-            sentiment_adj = sent_score * 0.05
+            sentiment_deviation = (sent_score_1_10 - 5.5) / 4.5  # normalise to -1.0 to +1.0
+            sentiment_adj = sentiment_deviation * 0.05 * sent_confidence  # max +/-5%, dampened by volume
             expert_adj = (expert_analysis["confidence_score"] / 100) * 0.15
             
             home_adj = 0
-            if is_home and expert_analysis["h2h_analysis"]["home_field_advantage"] > 50:
-                home_adj = (expert_analysis["h2h_analysis"]["home_field_advantage"] - 50) / 1000
+            hfa = expert_analysis["h2h_analysis"].get("home_field_advantage")
+            if is_home and hfa is not None and hfa > 50:
+                home_adj = (hfa - 50) / 1000
 
             true_prob = base_prob + sentiment_adj + expert_adj + home_adj
             true_prob = max(0.01, min(0.99, true_prob))
@@ -289,7 +296,32 @@ class AnalysisPipeline:
                     )
                     db.add(odds_entry)
                 
-                # 3. Add/Update Prediction
+                # 3. Write Sentiment record
+                headlines_text = "; ".join(sentiment.get("headlines", [])[:10])
+                existing_sentiment = (
+                    db.query(Sentiment)
+                    .filter_by(fixture_id=fixture.id, source="VADER")
+                    .first()
+                )
+                if existing_sentiment:
+                    existing_sentiment.content = headlines_text
+                    existing_sentiment.sentiment_score = sentiment["sentiment_score"]
+                    existing_sentiment.sentiment_score_1_10 = sentiment["sentiment_score_1_10"]
+                    existing_sentiment.volume = sentiment["volume"]
+                    existing_sentiment.confidence = sentiment["confidence"]
+                else:
+                    sent_record = Sentiment(
+                        fixture_id=fixture.id,
+                        source="VADER",
+                        content=headlines_text,
+                        sentiment_score=sentiment["sentiment_score"],
+                        sentiment_score_1_10=sentiment["sentiment_score_1_10"],
+                        volume=sentiment["volume"],
+                        confidence=sentiment["confidence"],
+                    )
+                    db.add(sent_record)
+
+                # 4. Add/Update Prediction
                 existing_prediction = (
                     db.query(Prediction)
                     .filter_by(
@@ -319,6 +351,57 @@ class AnalysisPipeline:
                     )
                     db.add(prediction)
                 
+                # 5. Snapshot prediction for accuracy tracking
+                existing_snap = (
+                    db.query(PredictionSnapshot)
+                    .filter_by(
+                        fixture_id=fixture.id,
+                        market_type=first_item["market_type"],
+                        selection=first_item["selection"],
+                    )
+                    .first()
+                )
+
+                best_odds_entry = (
+                    db.query(Odds)
+                    .filter(
+                        Odds.fixture_id == fixture.id,
+                        Odds.market_type == first_item["market_type"],
+                        Odds.selection == first_item["selection"],
+                    )
+                    .order_by(Odds.price.desc())
+                    .first()
+                )
+
+                snap_odds = best_odds_entry.price if best_odds_entry else best_price
+                snap_point = best_odds_entry.point if best_odds_entry else first_item.get("point")
+
+                if existing_snap:
+                    existing_snap.model_probability = true_prob
+                    existing_snap.value_score = value
+                    existing_snap.confidence_level = confidence
+                    existing_snap.is_recommended = is_adj_rec
+                    existing_snap.best_odds = snap_odds
+                    existing_snap.point = snap_point
+                else:
+                    snapshot = PredictionSnapshot(
+                        fixture_id=fixture.id,
+                        sport=first_item["sport"],
+                        league=first_item["league"],
+                        home_team=first_item["home_team"],
+                        away_team=first_item["away_team"],
+                        start_time=first_item["start_time"],
+                        market_type=first_item["market_type"],
+                        selection=first_item["selection"],
+                        model_probability=true_prob,
+                        value_score=value,
+                        confidence_level=confidence,
+                        is_recommended=is_adj_rec,
+                        best_odds=snap_odds,
+                        point=snap_point,
+                    )
+                    db.add(snapshot)
+
                 # Commit everything at once
                 db.commit()
 

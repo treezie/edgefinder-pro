@@ -10,6 +10,7 @@ class InjuryFetcher:
     def __init__(self):
         self.nfl_base_url = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams"
         self.nba_base_url = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams"
+        self.nrl_base_url = "https://site.api.espn.com/apis/site/v2/sports/rugby-league/nrl/teams"
         self.cache = {}  # Cache injury data to reduce API calls
 
     async def get_team_injuries(self, team_name: str, sport: str) -> Dict[str, Any]:
@@ -33,7 +34,12 @@ class InjuryFetcher:
         cache_key = f"{sport}_{team_name}"
         try:
             # Get team roster and injuries
-            base_url = self.nfl_base_url if sport == "NFL" else self.nba_base_url
+            if sport == "NFL":
+                base_url = self.nfl_base_url
+            elif sport == "NRL":
+                base_url = self.nrl_base_url
+            else:
+                base_url = self.nba_base_url
 
             # First, get list of all teams to find the team ID
             response = requests.get(base_url, timeout=10)
@@ -123,8 +129,11 @@ class InjuryFetcher:
         # Key positions in each sport
         nfl_key_positions = ["QB", "RB", "WR", "TE", "LT", "DE", "LB"]
         nba_key_positions = ["PG", "SG", "SF", "PF", "C"]
+        nrl_key_positions = ["FLB", "HLF", "FE", "HK", "LK"]
 
-        is_key_position = position in nfl_key_positions or position in nba_key_positions
+        is_key_position = (position in nfl_key_positions or
+                           position in nba_key_positions or
+                           position in nrl_key_positions)
 
         if status == "OUT":
             return "High - player ruled out" if is_key_position else "Moderate - backup unavailable"

@@ -6,7 +6,7 @@
     </div>
     <h3 style="color: #FFFFFF; margin-top: 24px; font-family: 'Outfit', sans-serif; font-size: 1.5rem;">Analyzing Market
         Data...</h3>
-    <p style="color: #94A3B8; font-size: 1rem; margin-top: 8px;">Finding the best multi-bet combinations</p>
+    <p id="loadingModalSubtitle" style="color: #94A3B8; font-size: 1rem; margin-top: 8px;">Finding the best multi-bet combinations</p>
 </div>
 
 <style>
@@ -24,36 +24,72 @@
 <script>
     document.addEventListener('DOMContentLoaded', function () {
         const modal = document.getElementById('loadingModal');
+        const subtitle = document.getElementById('loadingModalSubtitle');
+
+        const MODAL_STATUS_MESSAGES = [
+            "Fetching live odds from bookmakers...",
+            "Analyzing NRL, NBA & NFL markets...",
+            "Building prop projections...",
+            "Running sentiment analysis...",
+            "Generating multi-bet combinations...",
+            "Almost ready..."
+        ];
 
         // Check if we need to refresh (fresh session or stale data)
         const lastRefresh = localStorage.getItem('last_refresh_timestamp');
         const now = Date.now();
         const STALE_THRESHOLD = 5 * 60 * 1000; // 5 minutes
 
-        // For demo purposes/user request: "ensure a complete data refresh is completed"
-        // We will force it if it hasn't happened in this session recently
         if (!lastRefresh || (now - parseInt(lastRefresh)) > STALE_THRESHOLD) {
             startRefreshProcess();
         }
 
-        // Expose function for manual triggering related to navigation if needed
+        // Expose function for manual triggering
         window.triggerSmartRefresh = startRefreshProcess;
 
         function startRefreshProcess() {
             modal.style.display = 'flex';
 
+            let msgIndex = 0;
+            const msgInterval = setInterval(() => {
+                msgIndex = (msgIndex + 1) % MODAL_STATUS_MESSAGES.length;
+                subtitle.textContent = MODAL_STATUS_MESSAGES[msgIndex];
+            }, 5000);
+
+            const startTime = Date.now();
+            const TIMEOUT = 90000;
+
             // Trigger Backend Refresh
             fetch('/api/refresh', { method: 'POST' })
                 .then(response => response.json())
-                .then(data => {
-                    console.log("Refresh complete:", data);
-                    localStorage.setItem('last_refresh_timestamp', Date.now().toString());
+                .then(() => {
+                    // Poll for completion instead of immediate reload
+                    const pollInterval = setInterval(() => {
+                        const elapsed = Date.now() - startTime;
+                        if (elapsed >= TIMEOUT) {
+                            clearInterval(pollInterval);
+                            clearInterval(msgInterval);
+                            localStorage.setItem('last_refresh_timestamp', Date.now().toString());
+                            window.location.reload();
+                            return;
+                        }
 
-                    // Simple reload to show new data
-                    window.location.reload();
+                        fetch('/api/refresh/status')
+                            .then(res => res.json())
+                            .then(data => {
+                                if (!data.refreshing) {
+                                    clearInterval(pollInterval);
+                                    clearInterval(msgInterval);
+                                    localStorage.setItem('last_refresh_timestamp', Date.now().toString());
+                                    window.location.reload();
+                                }
+                            })
+                            .catch(() => {}); // Ignore transient poll errors
+                    }, 3000);
                 })
                 .catch(err => {
                     console.error("Refresh failed:", err);
+                    clearInterval(msgInterval);
                     alert("Error refreshing data. Please try again.");
                     modal.style.display = 'none';
                 });

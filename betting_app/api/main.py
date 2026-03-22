@@ -2,6 +2,7 @@ from fastapi import FastAPI, Request, HTTPException, Query, Depends, BackgroundT
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+import asyncio
 import uvicorn
 import os
 import json
@@ -9,18 +10,22 @@ from typing import List, Optional, Dict, Any
 import feedparser
 from dateutil import parser as date_parser
 from itertools import combinations
-from datetime import timezone, datetime
+from datetime import timezone, datetime, timedelta
 import pytz
 from dotenv import load_dotenv
 from sqlalchemy.orm import Session
+from sqlalchemy import or_
 from database.db import get_db, SessionLocal, engine, Base
-from database.models import Fixture, Odds, Prediction
+from database.models import Fixture, Odds, Prediction, PredictionSnapshot, Sentiment
 from analysis.pipeline import AnalysisPipeline
 
 # Load environment variables from .env file
 load_dotenv()
 
 app = FastAPI(title="Betting Suggestion App")
+
+# Background refresh state - prevents blocking requests and duplicate runs
+_refresh_in_progress = False
 
 app.mount("/static", StaticFiles(directory="api/static"), name="static")
 templates = Jinja2Templates(directory="api/templates")
@@ -43,6 +48,24 @@ Base.metadata.create_all(bind=engine)
 
 prop_generator = PropGenerator()
 
+
+async def _run_pipeline_background():
+    """Run the analysis pipeline in the background without blocking requests."""
+    global _refresh_in_progress
+    if _refresh_in_progress:
+        return  # Already running, skip
+    _refresh_in_progress = True
+    try:
+        print("🔄 Background pipeline refresh started...")
+        pipeline = AnalysisPipeline()
+        await pipeline.run()
+        print("✅ Background pipeline refresh complete.")
+    except Exception as e:
+        print(f"❌ Background pipeline refresh failed: {e}")
+    finally:
+        _refresh_in_progress = False
+
+
 def format_brisbane_time(utc_datetime):
     """Convert UTC datetime to Brisbane time and format it"""
     if utc_datetime.tzinfo is None:
@@ -60,23 +83,37 @@ def format_market_display(market_type: str) -> str:
     }
     return market_names.get(market_type, market_type.title())
 
-def generate_sentiment_data(prediction, fixture, confidence_level: str, value_score: float):
-    """Generate expert sentiment data for betting analysis"""
-    import random
-
-    # Base sentiment on confidence and value
+def generate_sentiment_data(prediction, fixture, confidence_level: str, value_score: float,
+                            sentiment_score_1_10: int = 6, sentiment_confidence: float = 0.0):
+    """
+    Generate expert sentiment data for betting analysis.
+    Base values are derived from confidence_level and value_score,
+    then shifted by actual headline sentiment when available.
+    """
+    # Deterministic bullish percentage based on confidence and value
     if confidence_level == "High" and value_score > 0.15:
-        bullish = random.randint(75, 90)
+        bullish = 82
     elif confidence_level == "High":
-        bullish = random.randint(65, 80)
+        bullish = 72
+    elif confidence_level == "Medium" and value_score > 0.10:
+        bullish = 65
     elif confidence_level == "Medium":
-        bullish = random.randint(50, 70)
+        bullish = 58
     else:
-        bullish = random.randint(35, 55)
+        bullish = 45
+
+    # Blend actual headline sentiment: up to +/-15pp shift
+    sentiment_deviation = (sentiment_score_1_10 - 5.5) / 4.5  # -1.0 to +1.0
+    bullish += int(sentiment_deviation * 15 * sentiment_confidence)
+    bullish = max(5, min(95, bullish))
 
     bearish = 100 - bullish
 
-    # Generate expert opinions
+    # Deterministic expert confidence derived from value_score
+    stats_confidence = min(90, max(40, int(value_score * 500) + 50))
+    sport_confidence = min(85, max(50, int(value_score * 400) + 55)) if confidence_level == "High" else min(65, max(45, int(value_score * 300) + 45))
+    market_confidence = min(80, max(40, int(value_score * 450) + 45))
+
     experts = []
 
     # Expert 1: Statistical Analyst
@@ -85,7 +122,7 @@ def generate_sentiment_data(prediction, fixture, confidence_level: str, value_sc
             "name": "StatsPro Analytics",
             "specialty": "Statistical Modeling",
             "sentiment": "Bullish" if bullish > 60 else "Neutral",
-            "confidence": f"{bullish}%",
+            "confidence": f"{stats_confidence}%",
             "reasoning": f"Model shows {value_score:.1%} edge vs market. Strong value opportunity based on historical trends."
         })
     else:
@@ -93,62 +130,34 @@ def generate_sentiment_data(prediction, fixture, confidence_level: str, value_sc
             "name": "StatsPro Analytics",
             "specialty": "Statistical Modeling",
             "sentiment": "Neutral" if bullish > 50 else "Bearish",
-            "confidence": f"{bullish}%",
+            "confidence": f"{stats_confidence}%",
             "reasoning": f"Market fairly priced. Edge of {value_score:.1%} suggests limited value in this spot."
         })
 
     # Expert 2: Sports Analyst
-    if fixture.sport == "NBA":
-        if confidence_level == "High":
-            experts.append({
-                "name": "NBA Insider Network",
-                "specialty": "Basketball Analytics",
-                "sentiment": "Bullish",
-                "confidence": f"{random.randint(70, 85)}%",
-                "reasoning": "Strong matchup advantages in pace, efficiency, and recent form. Team trends align with this outcome."
-            })
-        else:
-            experts.append({
-                "name": "NBA Insider Network",
-                "specialty": "Basketball Analytics",
-                "sentiment": "Neutral",
-                "confidence": f"{random.randint(50, 65)}%",
-                "reasoning": "Competitive matchup with balanced strengths. Key player availability and recent form are critical factors."
-            })
-    elif fixture.sport == "NFL":
-        if confidence_level == "High":
-            experts.append({
-                "name": "NFL Pro Picks",
-                "specialty": "Football Strategy",
-                "sentiment": "Bullish",
-                "confidence": f"{random.randint(70, 85)}%",
-                "reasoning": "Favorable situational spot with line movement indicating sharp money. Weather and injury report support this side."
-            })
-        else:
-            experts.append({
-                "name": "NFL Pro Picks",
-                "specialty": "Football Strategy",
-                "sentiment": "Neutral",
-                "confidence": f"{random.randint(50, 65)}%",
-                "reasoning": "Tight matchup with several key variables. Line value exists but execution risk is notable."
-            })
-    elif fixture.sport == "NRL":
-        if confidence_level == "High":
-            experts.append({
-                "name": "NRL Insider Tips",
-                "specialty": "Rugby League Analytics",
-                "sentiment": "Bullish",
-                "confidence": f"{random.randint(70, 85)}%",
-                "reasoning": "Strong form guide and key player availability. Team's forward pack dominance creates advantageous matchup."
-            })
-        else:
-            experts.append({
-                "name": "NRL Insider Tips",
-                "specialty": "Rugby League Analytics",
-                "sentiment": "Neutral",
-                "confidence": f"{random.randint(50, 65)}%",
-                "reasoning": "Evenly matched teams with form concerns. Origin period impacts and injury news are critical factors."
-            })
+    sport_analysts = {
+        "NBA": ("NBA Insider Network", "Basketball Analytics"),
+        "NFL": ("NFL Pro Picks", "Football Strategy"),
+        "NRL": ("NRL Insider Tips", "Rugby League Analytics"),
+    }
+    analyst_name, analyst_specialty = sport_analysts.get(fixture.sport, ("Sports Analyst", "General"))
+
+    if confidence_level == "High":
+        experts.append({
+            "name": analyst_name,
+            "specialty": analyst_specialty,
+            "sentiment": "Bullish",
+            "confidence": f"{sport_confidence}%",
+            "reasoning": "Strong matchup advantages and recent form align with this outcome."
+        })
+    else:
+        experts.append({
+            "name": analyst_name,
+            "specialty": analyst_specialty,
+            "sentiment": "Neutral",
+            "confidence": f"{sport_confidence}%",
+            "reasoning": "Competitive matchup with balanced strengths. Key player availability is a critical factor."
+        })
 
     # Expert 3: Market Movement Tracker
     if value_score > 0.10:
@@ -156,22 +165,21 @@ def generate_sentiment_data(prediction, fixture, confidence_level: str, value_sc
             "name": "SharpMoney Tracker",
             "specialty": "Line Movement",
             "sentiment": "Bullish",
-            "confidence": f"{random.randint(65, 80)}%",
-            "reasoning": f"Line movement favors this position. Public fading creates value - {value_score:.1%} edge identified."
+            "confidence": f"{market_confidence}%",
+            "reasoning": f"Line movement favors this position. {value_score:.1%} edge identified."
         })
     else:
         experts.append({
             "name": "SharpMoney Tracker",
             "specialty": "Line Movement",
             "sentiment": "Neutral" if value_score > 0.05 else "Bearish",
-            "confidence": f"{random.randint(45, 60)}%",
+            "confidence": f"{market_confidence}%",
             "reasoning": "Line is efficient. Limited movement suggests consensus pricing with minimal edge."
         })
 
     # Calculate consensus
     bullish_count = sum(1 for e in experts if e["sentiment"] == "Bullish")
     neutral_count = sum(1 for e in experts if e["sentiment"] == "Neutral")
-    bearish_count = sum(1 for e in experts if e["sentiment"] == "Bearish")
 
     if bullish_count >= 2:
         consensus = "Strong Buy"
@@ -206,98 +214,177 @@ async def landing_v2(request: Request):
     return templates.TemplateResponse("landing_v2.html", {"request": request})
 
 @app.post("/api/refresh")
-async def refresh_data(background_tasks: BackgroundTasks = None):
+async def refresh_data():
     """
-    Trigger manual refresh of betting data.
+    Trigger manual refresh of betting data (runs in background).
     """
+    if _refresh_in_progress:
+        return {"status": "in_progress", "message": "Data refresh already running. Check back shortly."}
+    asyncio.create_task(_run_pipeline_background())
+    return {"status": "started", "message": "Data refresh started in background. Reload in ~60 seconds."}
+
+@app.get("/api/refresh/status")
+async def refresh_status():
+    """Check if a background refresh is currently running."""
+    return {"refreshing": _refresh_in_progress}
+
+@app.get("/api/debug")
+async def debug_info(db: Session = Depends(get_db)):
+    """Diagnostic endpoint to see what's happening on Render."""
+    import traceback
+    info = {}
+    try:
+        info["odds_api_key_set"] = bool(os.getenv("ODDS_API_KEY"))
+        info["odds_api_key_prefix"] = os.getenv("ODDS_API_KEY", "")[:8] if os.getenv("ODDS_API_KEY") else None
+        info["database_url_type"] = os.getenv("DATABASE_URL", "sqlite (default)")[:20]
+        info["refresh_in_progress"] = _refresh_in_progress
+        info["utc_now"] = str(datetime.utcnow())
+
+        total_fixtures = db.query(Fixture).count()
+        total_predictions = db.query(Prediction).count()
+        upcoming_fixtures = db.query(Fixture).filter(Fixture.start_time > datetime.utcnow()).count()
+        upcoming_recommended = db.query(Prediction).join(Fixture).filter(
+            Prediction.is_recommended == True,
+            Fixture.start_time > datetime.utcnow()
+        ).count()
+
+        info["total_fixtures"] = total_fixtures
+        info["total_predictions"] = total_predictions
+        info["upcoming_fixtures"] = upcoming_fixtures
+        info["upcoming_recommended"] = upcoming_recommended
+
+        # Show recent fixtures
+        recent = db.query(Fixture).order_by(Fixture.id.desc()).limit(3).all()
+        info["latest_fixtures"] = [
+            {"id": f.id, "sport": f.sport, "name": f.fixture_name, "start": str(f.start_time)}
+            for f in recent
+        ]
+
+        # Try a quick NBA odds fetch to test API
+        try:
+            from scrapers.odds_api_fetcher import OddsAPIFetcher
+            fetcher = OddsAPIFetcher(api_key=os.getenv("ODDS_API_KEY"))
+            info["fetcher_api_key_set"] = bool(fetcher.api_key)
+        except Exception as e:
+            info["fetcher_error"] = str(e)
+
+    except Exception as e:
+        info["error"] = str(e)
+        info["traceback"] = traceback.format_exc()
+
+    return info
+
+@app.get("/api/refresh/nba")
+async def refresh_nba_only():
+    """Run NBA pipeline only - faster, for debugging on Render."""
+    global _refresh_in_progress
+    if _refresh_in_progress:
+        return {"status": "in_progress"}
+    _refresh_in_progress = True
     try:
         pipeline = AnalysisPipeline()
-        # Run synchronously for now to ensure user gets data immediately upon refresh
-        # In production, this might be backgrounded, but user wants immediate results.
-        await pipeline.run()
-        return {"status": "success", "message": "Data refreshed successfully"}
+        await pipeline._process_sport("NBA")
+        return {"status": "success", "message": "NBA refresh complete"}
     except Exception as e:
-        print(f"Error refreshing data: {e}")
-        return JSONResponse(status_code=500, content={"error": str(e)})
+        import traceback
+        return {"status": "error", "error": str(e), "traceback": traceback.format_exc()}
+    finally:
+        _refresh_in_progress = False
 
 @app.get("/bets")
 async def dashboard(request: Request, sport: str = "All", bankroll: float = 1000.0, db: Session = Depends(get_db)):
-    # Check for recent recommended predictions
-    query = db.query(Prediction).join(Fixture).filter(Prediction.is_recommended == True)
-    query = query.filter(Fixture.start_time > datetime.utcnow())
-    
-    # If no data exists, trigger auto-refresh
-    if query.count() == 0:
-        print("⚠ No active predictions found. Triggering auto-refresh...")
-        pipeline = AnalysisPipeline()
-        await pipeline.run()
-        # Re-query after refresh
+    try:
+        # Check for recent recommended predictions
         query = db.query(Prediction).join(Fixture).filter(Prediction.is_recommended == True)
         query = query.filter(Fixture.start_time > datetime.utcnow())
 
-    if sport != "All":
-        query = query.filter(Fixture.sport == sport)
+        # If no data exists, trigger background refresh (non-blocking)
+        if query.count() == 0 and not _refresh_in_progress:
+            print("⚠ No active predictions found. Triggering background refresh...")
+            asyncio.create_task(_run_pipeline_background())
 
-    predictions = query.all()
-    print(f"DEBUG: /bets endpoint found {len(predictions)} predictions after filtering")
-    if len(predictions) > 0:
-        print(f"DEBUG: Sample prediction: {predictions[0].selection} ({predictions[0].market_type})")
+        if sport != "All":
+            query = query.filter(Fixture.sport == sport)
 
-    # Get unique sports for dropdown
-    sports = db.query(Fixture.sport).distinct().all()
-    sports_list = [s[0] for s in sports]
-    if "All" not in sports_list:
-        sports_list.insert(0, "All")
+        predictions = query.all()
+        print(f"DEBUG: /bets endpoint found {len(predictions)} predictions after filtering")
 
-    # Initialize betting strategy calculator
-    from analysis.betting_strategy import BettingStrategy
-    strategy = BettingStrategy(bankroll=bankroll)
+        # Get unique sports for dropdown
+        sports = db.query(Fixture.sport).distinct().all()
+        sports_list = [s[0] for s in sports]
+        if "All" not in sports_list:
+            sports_list.insert(0, "All")
 
-    # Format for display
-    display_data = []
-    for p in predictions:
-        fixture = db.query(Fixture).filter(Fixture.id == p.fixture_id).first()
-        is_simulated = fixture.sport not in ["NFL", "NBA"]  # NFL and NBA have real data (records + sentiment)
+        # Format for display
+        display_data = []
+        for p in predictions:
+            fixture = db.query(Fixture).filter(Fixture.id == p.fixture_id).first()
+            if not fixture:
+                continue
+            is_simulated = fixture.sport not in ["NFL", "NBA", "NRL"]
 
-        # Format market and selection display
-        market_display = format_market_display(p.market_type)
+            market_display = format_market_display(p.market_type)
 
-        # Get point information for spreads/totals
-        odds_with_point = db.query(Odds).filter(
-            Odds.fixture_id == p.fixture_id,
-            Odds.market_type == p.market_type,
-            Odds.selection == p.selection
-        ).first()
+            odds_with_point = db.query(Odds).filter(
+                Odds.fixture_id == p.fixture_id,
+                Odds.market_type == p.market_type,
+                Odds.selection == p.selection
+            ).first()
 
-        selection_display = p.selection
-        if odds_with_point and odds_with_point.point:
-            if p.market_type == 'spreads':
-                selection_display = f"{p.selection} ({odds_with_point.point:+.1f})"
-            elif p.market_type == 'totals':
-                selection_display = f"{p.selection} {odds_with_point.point:.1f}"
+            selection_display = p.selection
+            if odds_with_point and odds_with_point.point:
+                if p.market_type == 'spreads':
+                    selection_display = f"{p.selection} ({odds_with_point.point:+.1f})"
+                elif p.market_type == 'totals':
+                    selection_display = f"{p.selection} {odds_with_point.point:.1f}"
 
-        # Generate sentiment data
-        sentiment = generate_sentiment_data(p, fixture, p.confidence_level, p.value_score)
+            # Query actual sentiment from pipeline
+            sent_record = (
+                db.query(Sentiment)
+                .filter(Sentiment.fixture_id == fixture.id)
+                .order_by(Sentiment.timestamp.desc())
+                .first()
+            )
+            sent_1_10 = sent_record.sentiment_score_1_10 if sent_record and sent_record.sentiment_score_1_10 else 6
+            sent_conf = sent_record.confidence if sent_record and sent_record.confidence is not None else 0.0
 
-        display_data.append({
-            "fixture": f"{fixture.home_team} vs {fixture.away_team}" if fixture.sport != "Horse Racing" else fixture.fixture_name,
-            "sport": fixture.sport,
-            "market": market_display,
-            "selection": selection_display,
-            "value": f"{p.value_score:.2f}",
-            "confidence": p.confidence_level,
-            "reasoning": p.reasoning,
-            "start_time": format_brisbane_time(fixture.start_time),
-            "is_simulated": is_simulated,
-            "sentiment": sentiment
+            sentiment = generate_sentiment_data(
+                p, fixture, p.confidence_level, p.value_score,
+                sentiment_score_1_10=sent_1_10,
+                sentiment_confidence=sent_conf
+            )
+
+            display_data.append({
+                "fixture": f"{fixture.home_team} vs {fixture.away_team}" if fixture.sport != "Horse Racing" else fixture.fixture_name,
+                "sport": fixture.sport,
+                "market": market_display,
+                "selection": selection_display,
+                "value": f"{p.value_score:.2f}",
+                "confidence": p.confidence_level,
+                "reasoning": p.reasoning,
+                "start_time": format_brisbane_time(fixture.start_time),
+                "is_simulated": is_simulated,
+                "sentiment": sentiment
+            })
+
+        return templates.TemplateResponse("index.html", {
+            "request": request,
+            "predictions": display_data,
+            "sports": sports_list,
+            "current_sport": sport,
+            "refreshing": _refresh_in_progress
         })
-
-    return templates.TemplateResponse("index.html", {
-        "request": request, 
-        "predictions": display_data,
-        "sports": sports_list,
-        "current_sport": sport
-    })
+    except Exception as e:
+        print(f"❌ /bets endpoint error: {e}")
+        import traceback
+        traceback.print_exc()
+        return templates.TemplateResponse("index.html", {
+            "request": request,
+            "predictions": [],
+            "sports": ["All"],
+            "current_sport": sport,
+            "refreshing": _refresh_in_progress
+        })
 
 @app.get("/multibets")
 async def multibets(request: Request, legs: int = 0, db: Session = Depends(get_db)):
@@ -315,10 +402,9 @@ async def multibets(request: Request, legs: int = 0, db: Session = Depends(get_d
             Fixture.start_time > datetime.utcnow()
         ).count()
 
-        if active_count == 0:
-            print("⚠ No active predictions found for multi-bets. Triggering auto-refresh...")
-            pipeline = AnalysisPipeline()
-            await pipeline.run()
+        if active_count == 0 and not _refresh_in_progress:
+            print("⚠ No active predictions found for multi-bets. Triggering background refresh...")
+            asyncio.create_task(_run_pipeline_background())
 
         # Get top recommended predictions from both sports combined
         nfl_predictions = (
@@ -342,8 +428,19 @@ async def multibets(request: Request, legs: int = 0, db: Session = Depends(get_d
             .limit(10)
             .all()
         )
-        
-        all_predictions = nfl_predictions + nba_predictions
+
+        nrl_predictions = (
+            db.query(Prediction)
+            .join(Fixture)
+            .filter(Prediction.is_recommended == True, Prediction.value_score > 0.03)
+            .filter(Fixture.start_time > datetime.utcnow())
+            .filter(Fixture.sport == 'NRL')
+            .order_by(Prediction.value_score.desc())
+            .limit(10)
+            .all()
+        )
+
+        all_predictions = nfl_predictions + nba_predictions + nrl_predictions
 
         # Helper function to create a leg dictionary
         def create_leg(pred):
@@ -645,12 +742,41 @@ async def get_props(fixture_id: str, db: Session = Depends(get_db)):
             return JSONResponse(status_code=404, content={"error": "Fixture not found"})
 
         import asyncio
-        
+
         home_players, away_players = await asyncio.gather(
             player_fetcher.get_top_players(fixture.home_team, fixture.sport, limit=8),
             player_fetcher.get_top_players(fixture.away_team, fixture.sport, limit=8)
         )
-        
+
+        # Fetch game logs for all players (for last 5 games + vs opponent insights)
+        sport_key_map = {"NBA": "basketball", "NFL": "football", "NRL": "rugby-league"}
+        league_key_map = {"NBA": "nba", "NFL": "nfl", "NRL": "nrl"}
+        sport_key = sport_key_map.get(fixture.sport, "football")
+        league_key = league_key_map.get(fixture.sport, "nfl")
+
+        async def fetch_game_log(player, opponent_team):
+            pid = player.get("id")
+            if not pid:
+                return {}
+            loop = asyncio.get_event_loop()
+            return await loop.run_in_executor(
+                None,
+                lambda: player_fetcher.get_player_game_log(pid, sport_key, league_key, opponent=opponent_team, limit=5)
+            )
+
+        home_log_tasks = [fetch_game_log(p, fixture.away_team) for p in home_players]
+        away_log_tasks = [fetch_game_log(p, fixture.home_team) for p in away_players]
+        all_logs = await asyncio.gather(*home_log_tasks, *away_log_tasks)
+
+        home_logs = all_logs[:len(home_players)]
+        away_logs = all_logs[len(home_players):]
+
+        # Attach game logs to player dicts
+        for player, log in zip(home_players, home_logs):
+            player["game_log"] = log
+        for player, log in zip(away_players, away_logs):
+            player["game_log"] = log
+
         props = prop_generator.generate_props(
             sport=fixture.sport,
             home_team=fixture.home_team,
@@ -658,7 +784,7 @@ async def get_props(fixture_id: str, db: Session = Depends(get_db)):
             home_players=home_players,
             away_players=away_players
         )
-        
+
         return props
     except Exception as e:
         print(f"Error generating props: {e}")
@@ -814,6 +940,7 @@ async def news_page(request: Request):
     feeds = [
         {"sport": "NFL", "url": "https://www.espn.com/espn/rss/nfl/news"},
         {"sport": "NBA", "url": "https://www.espn.com/espn/rss/nba/news"},
+        {"sport": "NRL", "url": "https://www.zerotackle.com/feed/"},
         {"sport": "NRL", "url": "https://www.espn.com/espn/rss/rugby/news"}
     ]
     
@@ -876,353 +1003,179 @@ async def news_page(request: Request):
     })
 
 
-@app.get("/footy-tipping")
-async def footy_tipping(request: Request):
-    """
-    NRL Footy Tipping Competition page.
-    Tips are driven by:
-      1. Real ESPN season records (W-L) parsed via HistoricalFetcher
-      2. NRL standings ladder (current + prior season fallback)
-      3. Home-ground advantage (NRL historical ~55% home win rate)
-      4. VADER sentiment over live ESPN/NRL RSS headlines
-    Odds are derived from these probabilities with a 5% bookmaker margin.
-    """
-    try:
-        import requests as req_lib
-        import re
-        import feedparser
-        import asyncio as _asyncio
-        from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
-        from scrapers.history_fetcher import HistoricalFetcher
-        from datetime import timedelta
+@app.get("/api/debug/accuracy")
+async def debug_accuracy(db: Session = Depends(get_db)):
+    """Diagnostic endpoint — shows snapshot counts and sample data."""
+    total_snapshots = db.query(PredictionSnapshot).count()
+    settled_snapshots = db.query(PredictionSnapshot).filter(PredictionSnapshot.outcome.isnot(None)).count()
+    pending_snapshots = db.query(PredictionSnapshot).filter(PredictionSnapshot.outcome.is_(None)).count()
 
-        analyzer = SentimentIntensityAnalyzer()
-        hist_fetcher = HistoricalFetcher("NRL")
-        rounds = {}
+    recent = (
+        db.query(PredictionSnapshot)
+        .order_by(PredictionSnapshot.created_at.desc())
+        .limit(5)
+        .all()
+    )
+    samples = [
+        {
+            "id": s.id[:8],
+            "fixture": f"{s.home_team} vs {s.away_team}",
+            "sport": s.sport,
+            "market": s.market_type,
+            "selection": s.selection,
+            "outcome": s.outcome,
+            "start_time": str(s.start_time),
+            "created_at": str(s.created_at),
+        }
+        for s in recent
+    ]
 
-        # NRL home advantage — historically home teams win ~55% in NRL
-        HOME_ADVANTAGE = 0.05
-        # Bookmaker overround margin
-        MARGIN = 0.05
-
-        # ── 1. Fetch current-week fixtures from ESPN scoreboard ───────────
-        all_events = []
-        try:
-            resp = req_lib.get(
-                "http://site.api.espn.com/apis/site/v2/sports/rugby/league/nrl/scoreboard",
-                timeout=10
-            )
-            if resp.status_code == 200:
-                all_events.extend(resp.json().get("events", []))
-                print(f"[Footy Tipping] {len(all_events)} events — current week")
-        except Exception as e:
-            print(f"[Footy Tipping] Scoreboard fetch failed: {e}")
-
-        # ── 2. Look ahead up to 3 weeks for upcoming rounds ──────────────
-        try:
-            for days_offset in [7, 14, 21]:
-                check_date = (datetime.utcnow() + timedelta(days=days_offset)).strftime("%Y%m%d")
-                r2 = req_lib.get(
-                    f"http://site.api.espn.com/apis/site/v2/sports/rugby/league/nrl/scoreboard?dates={check_date}",
-                    timeout=10
-                )
-                if r2.status_code == 200:
-                    extra = r2.json().get("events", [])
-                    existing_ids = {e.get("id") for e in all_events}
-                    new_evts = [e for e in extra if e.get("id") not in existing_ids]
-                    all_events.extend(new_evts)
-                    print(f"[Footy Tipping] +{len(new_evts)} events at +{days_offset}d")
-        except Exception as e:
-            print(f"[Footy Tipping] Lookahead fetch failed: {e}")
-
-        # ── 3. Fetch NRL ladder (current season, fallback to prior) ──────
-        # standings_map: team displayName → {ladder_pos, wins, losses, pct, pts_diff}
-        standings_map = {}
-        for season_year in [datetime.utcnow().year, datetime.utcnow().year - 1]:
-            if standings_map:
-                break
-            try:
-                sr = req_lib.get(
-                    f"http://site.api.espn.com/apis/site/v2/sports/rugby/league/nrl/standings?season={season_year}",
-                    timeout=10
-                )
-                if sr.status_code == 200:
-                    sdata = sr.json()
-                    # ESPN standings structure varies — try both common layouts
-                    entries = (
-                        sdata.get("standings", {}).get("entries", [])
-                        or sdata.get("children", [{}])[0].get("standings", {}).get("entries", [])
-                        or []
-                    )
-                    for pos, entry in enumerate(entries, start=1):
-                        tname = entry.get("team", {}).get("displayName", "")
-                        if not tname:
-                            continue
-                        stats_list = entry.get("stats", [])
-                        stat = {s["name"]: s.get("value", 0) for s in stats_list if "name" in s}
-                        wins   = int(stat.get("wins",   stat.get("totalWins",   0)))
-                        losses = int(stat.get("losses", stat.get("totalLosses", 0)))
-                        pf     = float(stat.get("pointsFor",     stat.get("pointsScored", 0)))
-                        pa     = float(stat.get("pointsAgainst", stat.get("pointsConceded", 0)))
-                        standings_map[tname] = {
-                            "ladder_pos": pos,
-                            "wins": wins,
-                            "losses": losses,
-                            "pts_diff": round(pf - pa, 1),
-                            "season": season_year,
-                        }
-                    if standings_map:
-                        print(f"[Footy Tipping] Loaded standings for {season_year} — {len(standings_map)} teams")
-            except Exception as e:
-                print(f"[Footy Tipping] Standings fetch failed ({season_year}): {e}")
-
-        # ── 4. Fetch NRL news headlines for VADER sentiment ──────────────
-        nrl_headlines = []
-        try:
-            feed = feedparser.parse("https://www.espn.com/espn/rss/rugby/news")
-            for entry in feed.entries[:40]:
-                title = getattr(entry, "title", "") or ""
-                if title:
-                    nrl_headlines.append(title)
-            print(f"[Footy Tipping] {len(nrl_headlines)} RSS headlines loaded")
-        except Exception as e:
-            print(f"[Footy Tipping] RSS fetch failed: {e}")
-
-        # ── 5. Process each fixture ───────────────────────────────────────
-        for event in all_events:
-
-            # — Round number detection (multiple fallback strategies) —
-            round_num = None
-            week_data = event.get("week", {})
-            if isinstance(week_data, dict):
-                round_num = week_data.get("number")
-            if not round_num:
-                slug = event.get("season", {}).get("slug", "")
-                m = re.search(r'round-?(\d+)', slug, re.IGNORECASE)
-                if m:
-                    round_num = int(m.group(1))
-            if not round_num:
-                for field in ["name", "shortName"]:
-                    m = re.search(r'round\s*(\d+)', event.get(field, ""), re.IGNORECASE)
-                    if m:
-                        round_num = int(m.group(1))
-                        break
-            if not round_num:
-                try:
-                    for note in event.get("competitions", [{}])[0].get("notes", []):
-                        m = re.search(r'round\s*(\d+)', note.get("headline", "") + note.get("text", ""), re.IGNORECASE)
-                        if m:
-                            round_num = int(m.group(1))
-                            break
-                except Exception:
-                    pass
-            if not round_num:
-                round_num = 1
-            round_key = f"Round {round_num}"
-
-            # — Extract teams, records, venue —
-            competitions = event.get("competitions", [])
-            if not competitions:
-                continue
-            comp = competitions[0]
-
-            home_team = away_team = "TBC"
-            home_record = away_record = ""
-            home_logo = away_logo = ""
-            venue_name = ""
-
-            try:
-                vd = comp.get("venue", {})
-                venue_name = vd.get("fullName", "") or vd.get("shortName", "")
-            except Exception:
-                pass
-
-            for c in comp.get("competitors", []):
-                td = c.get("team", {})
-                tname = td.get("displayName", "Unknown")
-                tlogo = td.get("logo", "")
-                rec = next((r.get("summary", "") for r in c.get("records", []) if r.get("type") == "total"), "")
-                if c.get("homeAway") == "home":
-                    home_team, home_record, home_logo = tname, rec, tlogo
-                else:
-                    away_team, away_record, away_logo = tname, rec, tlogo
-
-            # — Kick-off time —
-            start_time_display = "TBC"
-            try:
-                from dateutil import parser as _dp
-                start_dt = _dp.parse(event.get("date", "")).replace(tzinfo=timezone.utc)
-                start_time_display = format_brisbane_time(start_dt)
-            except Exception:
-                pass
-
-            # ── PROBABILITY ENGINE ────────────────────────────────────────
-            # Priority: ESPN season record → ladder standings → neutral 50/50
-            # All paths feed into the same normalised probability calculation.
-
-            # 5a. Parse current-season W-L records via HistoricalFetcher
-            home_stats = await hist_fetcher.get_team_stats(home_team, home_record)
-            away_stats = await hist_fetcher.get_team_stats(away_team, away_record)
-            home_win_rate = home_stats["win_rate"]   # 0.0 – 1.0
-            away_win_rate = away_stats["win_rate"]
-            home_form_desc = home_stats["form_desc"]
-            away_form_desc = away_stats["form_desc"]
-
-            # 5b. Overlay prior-season ladder if available (adds credibility
-            #     when current record is still 0-0 early in the season)
-            home_ladder = standings_map.get(home_team, {})
-            away_ladder = standings_map.get(away_team, {})
-            if home_ladder and away_ladder:
-                # Use ladder win % as a secondary signal blended 30/70 with record win rate
-                total_h = home_ladder["wins"] + home_ladder["losses"] or 1
-                total_a = away_ladder["wins"] + away_ladder["losses"] or 1
-                ladder_home_rate = home_ladder["wins"] / total_h
-                ladder_away_rate = away_ladder["wins"] / total_a
-                # Blend: 70% current record, 30% prior ladder
-                home_win_rate = 0.70 * home_win_rate + 0.30 * ladder_home_rate
-                away_win_rate = 0.70 * away_win_rate + 0.30 * ladder_away_rate
-
-            # 5c. Apply home-ground advantage then normalise
-            home_adj = home_win_rate + HOME_ADVANTAGE
-            away_adj = away_win_rate
-            total_adj = home_adj + away_adj if (home_adj + away_adj) > 0 else 1.0
-            home_base_prob = max(0.22, min(0.78, home_adj / total_adj))
-            away_base_prob = 1.0 - home_base_prob
-
-            # 5d. Convert probabilities → decimal odds (with bookmaker margin)
-            home_odds = round(1.0 / (home_base_prob * (1 + MARGIN)), 2)
-            away_odds = round(1.0 / (away_base_prob * (1 + MARGIN)), 2)
-            home_odds = max(1.10, min(home_odds, 9.00))
-            away_odds = max(1.10, min(away_odds, 9.00))
-
-            # 5e. Tip = team with better implied probability (lower odds)
-            if home_odds <= away_odds:
-                tip_team, tip_odds, tip_prob = home_team, home_odds, home_base_prob
-            else:
-                tip_team, tip_odds, tip_prob = away_team, away_odds, away_base_prob
-
-            # 5f. Confidence based on the margin between the two win rates
-            prob_gap = abs(home_base_prob - away_base_prob)
-            if prob_gap >= 0.18:
-                confidence, confidence_color = "High",   "#10B981"
-            elif prob_gap >= 0.08:
-                confidence, confidence_color = "Medium", "#3B82F6"
-            else:
-                confidence, confidence_color = "Low",    "#F59E0B"
-
-            # ── SENTIMENT ENGINE ──────────────────────────────────────────
-            # Anchor = record-based probability, adjusted by headline tone.
-            home_short = home_team.split()[-1]
-            away_short = away_team.split()[-1]
-            match_headlines = [
-                h for h in nrl_headlines
-                if home_short.lower() in h.lower() or away_short.lower() in h.lower()
-            ]
-
-            home_sentiment_pct = int(home_base_prob * 100)
-            if match_headlines:
-                scores = [analyzer.polarity_scores(h)["compound"] for h in match_headlines[:5]]
-                avg_compound = sum(scores) / len(scores)
-                # News tone adjusts sentiment up to ±12 points
-                home_sentiment_pct = min(82, max(28, home_sentiment_pct + int(avg_compound * 12)))
-            away_sentiment_pct = 100 - home_sentiment_pct
-
-            # Build contextual form strings for the summary
-            home_form_str = home_form_desc if home_form_desc != "Record: Est." else f"{home_team} (pre-season)"
-            away_form_str = away_form_desc if away_form_desc != "Record: Est." else f"{away_team} (pre-season)"
-            home_pos_str  = f"(Ladder #{home_ladder['ladder_pos']})" if home_ladder else ""
-            away_pos_str  = f"(Ladder #{away_ladder['ladder_pos']})" if away_ladder else ""
-
-            if home_sentiment_pct >= 65:
-                sentiment_label = f"Strong lean → {home_team}"
-                sentiment_summary = (
-                    f"Reddit r/nrl and X/NRL back {home_team} {home_pos_str} strongly at home. "
-                    f"Season form ({home_form_str}) supports the home side, with NRL.com analysts "
-                    f"pointing to forward-pack dominance. Public sentiment sits {home_sentiment_pct}% in favour."
-                )
-            elif away_sentiment_pct >= 65:
-                sentiment_label = f"Strong lean → {away_team}"
-                sentiment_summary = (
-                    f"The NRL community backs {away_team} {away_pos_str} on the road. "
-                    f"Season form ({away_form_str}) gives them strong credibility as away favourites. "
-                    f"X/NRL and Reddit r/nrl tip the visitors — {away_sentiment_pct}% backing."
-                )
-            elif home_sentiment_pct >= 55:
-                sentiment_label = f"Slight lean → {home_team}"
-                sentiment_summary = (
-                    f"Sentiment leans to {home_team} {home_pos_str} with home advantage. "
-                    f"Form: {home_form_str} vs {away_form_str}. "
-                    f"NRL.com sees it as competitive but {home_team} edge the public vote "
-                    f"({home_sentiment_pct}% vs {away_sentiment_pct}%)."
-                )
-            elif away_sentiment_pct >= 55:
-                sentiment_label = f"Slight lean → {away_team}"
-                sentiment_summary = (
-                    f"Slight away lean here. {away_team} {away_pos_str} form ({away_form_str}) "
-                    f"has the X/NRL community backing them ({away_sentiment_pct}%). "
-                    f"NRL.com analysis points to {away_team}'s spine as the potential difference-maker."
-                )
-            else:
-                sentiment_label = "50/50 — Too close to call"
-                sentiment_summary = (
-                    f"Community is split. {home_team} {home_pos_str} ({home_form_str}) vs "
-                    f"{away_team} {away_pos_str} ({away_form_str}). "
-                    f"Reddit r/nrl threads are lively with no consensus. "
-                    f"NRL.com analysts are divided — this one could go either way."
-                )
-
-            match_data = {
-                "home_team":         home_team,
-                "away_team":         away_team,
-                "home_record":       home_record,
-                "away_record":       away_record,
-                "home_logo":         home_logo,
-                "away_logo":         away_logo,
-                "home_ladder_pos":   home_ladder.get("ladder_pos", ""),
-                "away_ladder_pos":   away_ladder.get("ladder_pos", ""),
-                "home_ladder_season":home_ladder.get("season", ""),
-                "away_ladder_season":away_ladder.get("season", ""),
-                "start_time":        start_time_display,
-                "venue":             venue_name,
-                "home_odds":         home_odds,
-                "away_odds":         away_odds,
-                "tip":               tip_team,
-                "tip_odds":          tip_odds,
-                "tip_implied_prob":  int(tip_prob * 100),
-                "confidence":        confidence,
-                "confidence_color":  confidence_color,
-                "home_sentiment_pct":home_sentiment_pct,
-                "away_sentiment_pct":away_sentiment_pct,
-                "sentiment_label":   sentiment_label,
-                "sentiment_summary": sentiment_summary,
-                "match_headlines":   match_headlines[:3],
-            }
-
-            if round_key not in rounds:
-                rounds[round_key] = {"round_name": round_key, "round_number": round_num, "matches": []}
-            rounds[round_key]["matches"].append(match_data)
-
-        sorted_rounds = sorted(
-            rounds.values(),
-            key=lambda x: x["round_number"] if isinstance(x["round_number"], int) else 999
+    # Check unsettled fixtures (past games with no score)
+    unsettled_fixtures = (
+        db.query(Fixture)
+        .filter(
+            Fixture.start_time < datetime.now(timezone.utc),
+            Fixture.result_settled_at.is_(None),
         )
+        .count()
+    )
 
-        return templates.TemplateResponse("footy_tipping.html", {
-            "request":       request,
-            "rounds":        sorted_rounds,
-            "total_matches": sum(len(r["matches"]) for r in sorted_rounds),
-            "last_updated":  datetime.utcnow().strftime("%b %d, %Y at %I:%M %p UTC"),
-        })
+    return {
+        "total_snapshots": total_snapshots,
+        "settled_snapshots": settled_snapshots,
+        "pending_snapshots": pending_snapshots,
+        "unsettled_fixtures": unsettled_fixtures,
+        "utc_now": str(datetime.now(timezone.utc)),
+        "recent_snapshots": samples,
+    }
 
+
+@app.get("/accuracy", response_class=HTMLResponse)
+async def accuracy_page(request: Request, days: int = 3, db: Session = Depends(get_db)):
+    """Prediction accuracy dashboard."""
+    from scrapers.results_fetcher import ResultsFetcher
+    from collections import defaultdict
+
+    days = max(1, min(7, days))
+
+    # Always settle up to 7 days back regardless of display window,
+    # so results are populated even when viewing a narrow window.
+    try:
+        ResultsFetcher().fetch_and_settle(db, days_back=7)
     except Exception as e:
-        print(f"[Footy Tipping] Error: {e}")
+        print(f"Results settlement error: {e}")
         import traceback
         traceback.print_exc()
-        return templates.TemplateResponse("footy_tipping.html", {
-            "request":       request,
-            "rounds":        [],
-            "total_matches": 0,
-            "last_updated":  datetime.utcnow().strftime("%b %d, %Y at %I:%M %p UTC"),
-            "error":         str(e),
+
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+
+    # All snapshots in window — match on EITHER start_time or created_at
+    # so snapshots aren't missed if start_time is slightly outside the window.
+    all_snaps = (
+        db.query(PredictionSnapshot)
+        .filter(
+            or_(PredictionSnapshot.start_time >= cutoff, PredictionSnapshot.created_at >= cutoff)
+        )
+        .order_by(PredictionSnapshot.start_time.desc())
+        .all()
+    )
+
+    settled = [s for s in all_snaps if s.outcome is not None]
+    pending = [s for s in all_snaps if s.outcome is None]
+
+    # --- Overall stats ---
+    total_settled = len(settled)
+    total_snapshots = len(all_snaps)
+    correct = sum(1 for s in settled if s.outcome == "correct")
+    overall_rate = round((correct / total_settled) * 100, 1) if total_settled else 0
+
+    rec_settled = [s for s in settled if s.is_recommended]
+    rec_correct = sum(1 for s in rec_settled if s.outcome == "correct")
+    rec_rate = round((rec_correct / len(rec_settled)) * 100, 1) if rec_settled else 0
+
+    # --- By sport ---
+    by_sport = defaultdict(lambda: {"total": 0, "correct": 0})
+    for s in settled:
+        by_sport[s.sport]["total"] += 1
+        if s.outcome == "correct":
+            by_sport[s.sport]["correct"] += 1
+    sport_stats = [
+        {"sport": k, "total": v["total"], "correct": v["correct"],
+         "rate": round((v["correct"] / v["total"]) * 100, 1) if v["total"] else 0}
+        for k, v in sorted(by_sport.items())
+    ]
+
+    # --- By confidence ---
+    by_conf = defaultdict(lambda: {"total": 0, "correct": 0})
+    for s in settled:
+        by_conf[s.confidence_level]["total"] += 1
+        if s.outcome == "correct":
+            by_conf[s.confidence_level]["correct"] += 1
+    conf_order = ["High", "Medium", "Low"]
+    conf_stats = [
+        {"level": k, "total": by_conf[k]["total"], "correct": by_conf[k]["correct"],
+         "rate": round((by_conf[k]["correct"] / by_conf[k]["total"]) * 100, 1) if by_conf[k]["total"] else 0}
+        for k in conf_order if k in by_conf
+    ]
+
+    # --- By market type ---
+    by_market = defaultdict(lambda: {"total": 0, "correct": 0})
+    for s in settled:
+        by_market[s.market_type]["total"] += 1
+        if s.outcome == "correct":
+            by_market[s.market_type]["correct"] += 1
+    market_stats = [
+        {"market": format_market_display(k), "total": v["total"], "correct": v["correct"],
+         "rate": round((v["correct"] / v["total"]) * 100, 1) if v["total"] else 0}
+        for k, v in sorted(by_market.items())
+    ]
+
+    # --- Daily breakdown ---
+    by_day = defaultdict(list)
+    for s in all_snaps:
+        st = s.start_time
+        if st and st.tzinfo is None:
+            st = st.replace(tzinfo=timezone.utc)
+        if st:
+            day_key = st.astimezone(pytz.timezone("Australia/Brisbane")).strftime("%a, %b %d")
+            by_day[day_key].append(s)
+
+    daily_breakdown = []
+    for day_label, snaps in by_day.items():
+        day_settled = [s for s in snaps if s.outcome is not None]
+        day_correct = sum(1 for s in day_settled if s.outcome == "correct")
+        day_rate = round((day_correct / len(day_settled)) * 100, 1) if day_settled else 0
+        picks = []
+        for s in snaps:
+            picks.append({
+                "fixture": f"{s.home_team} vs {s.away_team}",
+                "sport": s.sport,
+                "market": format_market_display(s.market_type),
+                "selection": s.selection,
+                "odds": f"{s.best_odds:.2f}" if s.best_odds else "-",
+                "confidence": s.confidence_level,
+                "outcome": s.outcome or "pending",
+                "home_score": s.fixture.home_score if s.fixture and s.fixture.home_score is not None else "-",
+                "away_score": s.fixture.away_score if s.fixture and s.fixture.away_score is not None else "-",
+            })
+        daily_breakdown.append({
+            "day": day_label,
+            "total": len(day_settled),
+            "correct": day_correct,
+            "rate": day_rate,
+            "picks": picks,
         })
 
+    return templates.TemplateResponse("accuracy.html", {
+        "request": request,
+        "days": days,
+        "overall_rate": overall_rate,
+        "total_settled": total_settled,
+        "total_snapshots": total_snapshots,
+        "rec_rate": rec_rate,
+        "pending_count": len(pending),
+        "sport_stats": sport_stats,
+        "conf_stats": conf_stats,
+        "market_stats": market_stats,
+        "daily_breakdown": daily_breakdown,
+    })
